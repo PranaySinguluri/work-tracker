@@ -1,337 +1,76 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Class + Work Tracker</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#07070f;color:#fff;font-family:monospace;padding:14px;min-height:100vh}
-.wrap{max-width:520px;margin:0 auto}
-h1{font-family:sans-serif;font-size:20px;font-weight:900;letter-spacing:1px}
-.sub{font-size:10px;color:#555;margin-bottom:2px}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Class & Work Calendar</title>
 
-/* Tabs */
-.tabs{display:flex;gap:3px;margin:12px 0 10px}
-.tab{flex:1;padding:9px 4px;border:none;border-radius:8px;cursor:pointer;font-family:monospace;font-size:10px;letter-spacing:1px;background:#0f0f1e;color:#555;transition:all .15s}
-.tab.on{background:#1e1e32;color:#fff}
+  <link rel="stylesheet" href="styles.css">
 
-/* Cards */
-.card{background:#0f0f1e;border-radius:10px;padding:14px;margin-bottom:10px;border:1px solid #1a1a2e}
-
-/* Inputs */
-label{font-size:9px;color:#555;display:block;margin-bottom:4px;letter-spacing:1px}
-input[type=date],input[type=number]{width:100%;background:#0a0a16;border:1px solid #252540;border-radius:7px;padding:9px 10px;color:#fff;font-size:12px;font-family:monospace;outline:none}
-input:focus{border-color:#1a7fd4}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
-
-/* Buttons */
-.btn-add{width:100%;background:#00b055;border:none;border-radius:8px;padding:10px;color:#000;font-family:monospace;font-size:12px;font-weight:700;cursor:pointer;margin-top:4px}
-.btn-del{background:none;border:none;color:#333;cursor:pointer;font-size:17px;padding:0 4px;line-height:1}
-.btn-del:hover{color:#f55}
-
-/* Alerts */
-.alert{border-radius:7px;padding:8px 10px;font-size:10px;margin-bottom:8px}
-.alert-warn{background:#2a1400;border:1px solid #ff8800;color:#ff8800}
-.alert-info{background:#0a0a16;border:1px solid #252540;color:#aaa}
-.alert-over{color:#f55}
-.alert-ok{color:#50d080}
-
-/* Calendar */
-.cal-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.cal-nav button{background:#1a1a2e;border:none;color:#fff;border-radius:7px;padding:5px 14px;cursor:pointer;font-size:16px}
-.cal-nav span{font-weight:700;font-size:15px}
-.dow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:3px;text-align:center;font-size:9px;color:#444;padding:0 1px}
-.cgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
-.cell{min-height:68px;border-radius:6px;padding:4px 3px;overflow:hidden;background:#0d0d1c;border:1px solid transparent;position:relative}
-.cell.free{background:#0a140a;border:1px dashed #1e3a1e}
-.cell.today{background:#12122a;border:1px solid #4444aa}
-.cell.empty{background:#080810;border:1px solid transparent}
-.daynum{font-size:9px;color:#444;margin-bottom:2px;display:flex;justify-content:space-between;align-items:center}
-.daynum.is-today{color:#fff}
-.daynum.is-free{color:#285028}
-.chip{border-radius:3px;padding:2px 3px;margin-bottom:2px;font-size:7px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chip-L{background:#1a4070;color:#80c0ff}
-.chip-B{background:#1a5025;color:#80e898}
-.chip-E{background:#7a3800;color:#ffc060}
-.chip-W{background:#0d3060;color:#4da6ff}
-.chip-free{font-size:7px;color:#1e4a1e;margin-top:1px}
-
-/* Shifts */
-.shift{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;background:#0a0a16;border-radius:8px;border-left:3px solid #1a7fd4;margin-bottom:6px}
-.shift-left{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-
-/* Weekly */
-.wk-card{background:#0f0f1e;border-radius:10px;padding:14px;margin-bottom:10px;border:1px solid #1a1a2e}
-.bar-bg{height:6px;background:#1a1a2e;border-radius:3px;overflow:hidden;margin:8px 0}
-.bar-fill{height:100%;border-radius:3px;transition:width .3s}
-.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-.tag{border-radius:5px;padding:3px 7px;font-size:9px;display:inline-block}
-.tag-L{background:#1a4070;color:#80c0ff}
-.tag-B{background:#1a5025;color:#80e898}
-.tag-E{background:#7a3800;color:#ffc060}
-.tag-av{background:#0a140a;border:1px dashed #1e3a1e;color:#50c050}
-
-/* Legend */
-.legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.leg{display:flex;align-items:center;gap:4px;font-size:9px;padding:3px 8px;border-radius:5px}
-
-.section{display:none}
-.section.on{display:block}
-.empty-msg{color:#333;font-size:12px;padding:4px 0}
-</style>
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
+
 <body>
-<div class="wrap">
 
-  <!-- Header -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-    <div>
-      <div class="sub">SUMMER 2026</div>
-      <h1>Class + Work</h1>
-      <div style="font-size:10px;color:#1a7fd4;margin-top:2px">Costco · Max <b>24h/week</b></div>
-    </div>
-    <div style="text-align:right;background:#0f0f1e;border:1px solid #1a7fd4;border-radius:9px;padding:8px 12px">
-      <div style="font-size:9px;color:#555">TOTAL</div>
-      <div id="tot" style="font-size:20px;font-weight:700;color:#1a7fd4">0.0h</div>
-    </div>
-  </div>
+<header>
+  <h1>📅 Class & Work Calendar</h1>
+</header>
 
-  <!-- Legend -->
-  <div class="legend">
-    <div class="leg" style="background:#1a4070;color:#80c0ff">📖 Lecture</div>
-    <div class="leg" style="background:#1a5025;color:#80e898">🧪 Lab</div>
-    <div class="leg" style="background:#7a3800;color:#ffc060">📝 Exam</div>
-    <div class="leg" style="background:#0d3060;color:#4da6ff">💼 Work</div>
-    <div class="leg" style="background:#0a140a;border:1px dashed #1e3a1e;color:#285028">free</div>
-  </div>
+<main>
+  <!-- Dashboard -->
+  <section class="dashboard">
+    <div class="card" onclick="connectGoogle()">🔗 Connect Google</div>
+    <div class="card" onclick="syncSelectedEvents()">☁️ Sync Events</div>
+    <div class="card" onclick="openImport()">📂 Import Class Schedule</div>
+    <div class="card" onclick="openShift()">💼 Add Work Shift</div>
+    <div class="card" onclick="openCalendar()">🗓 Calendar Preview</div>
+    <div class="card" onclick="openNotes()">📝 Notes</div>
+    <div class="card" onclick="connectGoogle()">🔗 Google Calendar</div>
+  </section>
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab on" onclick="show('cal',this)">📅 Calendar</button>
-    <button class="tab" onclick="show('log',this)">⏱ Log Work</button>
-    <button class="tab" onclick="show('wk',this)">📊 Weekly</button>
-  </div>
+  <!-- Import -->
+  <section id="importSection" class="hidden">
+    <input type="file" id="fileInput"/>
+    <button onclick="handleUpload()">Extract Text</button>
 
-  <!-- CALENDAR -->
-  <div id="cal" class="section on">
-    <div class="cal-nav">
-      <button onclick="prevM()">‹</button>
-      <span id="mhdr"></span>
-      <button onclick="nextM()">›</button>
-    </div>
-    <div class="dow"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
-    <div class="cgrid" id="cgrid"></div>
-    <div id="cal-summary" class="tags" style="margin-top:10px"></div>
-  </div>
+    <textarea id="ocrText"></textarea>
+    <button onclick="parseEvents()">Detect Events</button>
 
-  <!-- LOG -->
-  <div id="log" class="section">
-    <div class="card">
-      <div class="g2">
-        <div><label>DATE</label><input type="date" id="fd" onchange="checkDate()" /></div>
-        <div><label>HOURS</label><input type="number" id="fh" step="0.25" min="0.25" max="14" placeholder="e.g. 8" oninput="checkDate()" onkeydown="if(event.key==='Enter')addShift()" /></div>
-      </div>
-      <div id="clash" class="alert alert-warn" style="display:none">⚠ You have a class on this day</div>
-      <div id="wprev" class="alert alert-info" style="display:none"></div>
-      <div id="ferr" style="color:#f55;font-size:10px;margin-bottom:6px"></div>
-      <button class="btn-add" onclick="addShift()">+ ADD COSTCO SHIFT</button>
-    </div>
-    <div class="card">
-      <div style="font-size:10px;color:#555;margin-bottom:10px">SHIFTS (<span id="scnt">0</span>)</div>
-      <div id="slist"><div class="empty-msg">No shifts logged yet.</div></div>
-    </div>
-  </div>
+    <div id="draftEvents"></div>
+    <button onclick="saveDraftEvents()">Save Events</button>
+  </section>
 
-  <!-- WEEKLY -->
-  <div id="wk" class="section">
-    <div id="wklist"><div class="empty-msg" style="padding:12px">No data yet.</div></div>
-  </div>
+  <!-- Work Shift -->
+  <section id="shiftSection" class="hidden">
+    <h2>Add Work Shift</h2>
+    <input id="shiftTitle" value="Costco Shift"/>
+    <input id="shiftDate" type="date"/>
+    <input id="shiftStart" type="time"/>
+    <input id="shiftEnd" type="time"/>
+    <button onclick="saveShift()">Save Shift</button>
+  </section>
 
-</div>
-<script>
-const CL=[
-  {d:"2026-06-10",t:"L"},{d:"2026-06-12",t:"L"},{d:"2026-06-15",t:"B"},
-  {d:"2026-06-17",t:"L"},{d:"2026-06-19",t:"L"},{d:"2026-06-22",t:"L"},
-  {d:"2026-06-23",t:"B"},{d:"2026-06-24",t:"L"},{d:"2026-06-26",t:"E"},
-  {d:"2026-06-29",t:"L"},{d:"2026-06-30",t:"B"},{d:"2026-07-03",t:"L"},
-  {d:"2026-07-06",t:"B"},{d:"2026-07-08",t:"L"},{d:"2026-07-09",t:"B"},
-  {d:"2026-07-10",t:"L"},{d:"2026-07-16",t:"E"}
-];
-const CLSET=new Set(CL.map(c=>c.d));
-const TLABEL={L:"📖 Lecture",B:"🧪 Lab",E:"📝 Exam"};
-const MN=["January","February","March","April","May","June","July","August","September","October","November","December"];
-const pad=n=>String(n).padStart(2,"0");
-const toDS=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-const today=toDS(new Date());
-const fmt=ds=>new Date(ds+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});
+  <!-- Calendar -->
+  <section id="calendarSection" class="hidden">
+    <div id="calendar"></div>
+  </section>
 
-let entries=[];
-try{entries=JSON.parse(localStorage.getItem("ctv6")||"[]")}catch{}
-let mo=6,yr=2026;
+  <!-- Notes -->
+  <section id="notesSection" class="hidden">
+    <textarea id="notes"></textarea>
+  </section>
 
-function save(){try{localStorage.setItem("ctv6",JSON.stringify(entries))}catch{}}
+</main>
 
-function wkStart(ds){
-  const d=new Date(ds+"T12:00:00"),dow=d.getDay();
-  d.setDate(d.getDate()-(dow===0?6:dow-1));
-  return toDS(d);
-}
-function getWkTotals(){
-  const m={};
-  entries.forEach(e=>{const k=wkStart(e.date);m[k]=(m[k]||0)+e.hours;});
-  return m;
-}
-function totalHrs(){return entries.reduce((s,e)=>s+e.hours,0);}
-function isAvail(ds){return !CLSET.has(ds)&&new Date(ds+"T12:00:00").getDay()!==0;}
+<script src="storage.js"></script>
+<script src="ocr.js"></script>
+<script src="calendar.js"></script>
+<script src="google-calendar.js"></script>
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="app.js"></script>
 
-function show(id,btn){
-  document.querySelectorAll(".section").forEach(s=>s.classList.remove("on"));
-  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("on"));
-  document.getElementById(id).classList.add("on");
-  btn.classList.add("on");
-  if(id==="cal") renderCal();
-  else if(id==="wk") renderWk();
-  else renderLog();
-}
-
-// ── CALENDAR ──
-function renderCal(){
-  document.getElementById("mhdr").textContent=MN[mo-1]+" "+yr;
-  const fd=new Date(yr,mo-1,1).getDay();
-  const dim=new Date(yr,mo,0).getDate();
-  const wt=getWkTotals();
-  let html="";
-  for(let i=0;i<fd;i++) html+='<div class="cell empty"></div>';
-  let lecCount=0,labCount=0,examCount=0,freeCount=0;
-  for(let day=1;day<=dim;day++){
-    const ds=`${yr}-${pad(mo)}-${pad(day)}`;
-    const cls=CL.find(c=>c.d===ds);
-    const we=entries.filter(e=>e.date===ds);
-    const dh=we.reduce((s,e)=>s+e.hours,0);
-    const free=isAvail(ds)&&!cls&&!we.length;
-    if(cls){if(cls.t==="L")lecCount++;else if(cls.t==="B")labCount++;else examCount++;}
-    if(free) freeCount++;
-    const isT=ds===today;
-    const cellCls="cell"+(isT?" today":free?" free":"");
-    html+=`<div class="${cellCls}">`;
-    html+=`<div class="daynum${isT?" is-today":free?" is-free":""}"><span>${day}</span>${dh>0?`<span style="font-size:7px;color:#4da6ff">${dh}h</span>`:""}</div>`;
-    if(cls) html+=`<div class="chip chip-${cls.t}">${cls.t==="L"?"Lec":cls.t==="B"?"Lab":"Exam"}</div>`;
-    if(dh>0) html+=`<div class="chip chip-W">💼 ${dh}h</div>`;
-    if(free) html+=`<div class="chip-free">free</div>`;
-    html+="</div>";
-  }
-  document.getElementById("cgrid").innerHTML=html;
-  // Summary
-  let sum="";
-  if(lecCount) sum+=`<span class="tag tag-L">📖 ${lecCount} Lectures</span>`;
-  if(labCount) sum+=`<span class="tag tag-B">🧪 ${labCount} Labs</span>`;
-  if(examCount) sum+=`<span class="tag tag-E">📝 ${examCount} Exams</span>`;
-  if(freeCount) sum+=`<span class="tag tag-av">✓ ${freeCount} Free days</span>`;
-  document.getElementById("cal-summary").innerHTML=sum;
-}
-
-function prevM(){mo===1?(mo=12,yr--):mo--;renderCal();}
-function nextM(){mo===12?(mo=1,yr++):mo++;renderCal();}
-
-// ── LOG ──
-function renderLog(){
-  const fd=document.getElementById("fd");
-  if(!fd.value) fd.value=today;
-  document.getElementById("tot").textContent=totalHrs().toFixed(1)+"h";
-  document.getElementById("scnt").textContent=entries.length;
-  let html="";
-  [...entries].sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>{
-    const clash=CLSET.has(e.date)?'<span style="color:#ff8800;font-size:9px">⚠ class day</span>':"";
-    html+=`<div class="shift">
-      <div class="shift-left">
-        <span style="color:#1a7fd4;font-size:10px">COSTCO</span>
-        <span style="font-size:12px">${fmt(e.date)}</span>
-        <span style="color:#444;font-size:10px">${new Date(e.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short"})}</span>
-        ${clash}
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-weight:700;font-size:15px">${e.hours}h</span>
-        <button class="btn-del" onclick="del(${e.id})">×</button>
-      </div>
-    </div>`;
-  });
-  document.getElementById("slist").innerHTML=html||'<div class="empty-msg">No shifts logged yet.</div>';
-  checkDate();
-}
-
-function checkDate(){
-  const ds=document.getElementById("fd").value;
-  if(!ds) return;
-  document.getElementById("clash").style.display=CLSET.has(ds)?"block":"none";
-  const wt=getWkTotals();
-  const k=wkStart(ds),ex=wt[k]||0;
-  const fh=parseFloat(document.getElementById("fh").value)||0;
-  const nt=ex+fh,ov=nt>24;
-  const el=document.getElementById("wprev");
-  const ws=new Date(ds+"T12:00:00"),dow=ws.getDay();
-  ws.setDate(ws.getDate()-(dow===0?6:dow-1));
-  const we=new Date(ws);we.setDate(ws.getDate()+6);
-  el.style.display="block";
-  el.innerHTML=`Week ${fmt(toDS(ws))}–${fmt(toDS(we))}: <b>${ex.toFixed(1)}h</b> used${fh?` → <span class="${ov?"alert-over":"alert-ok"}">${nt.toFixed(1)}/24h${ov?" ⚠ OVER LIMIT":""}</span>`:""}`;
-}
-
-function addShift(){
-  const ds=document.getElementById("fd").value;
-  const h=parseFloat(document.getElementById("fh").value);
-  const err=document.getElementById("ferr");
-  if(!ds) return err.textContent="Pick a date.";
-  if(isNaN(h)||h<=0||h>14) return err.textContent="Enter hours between 0.25 and 14.";
-  err.textContent="";
-  entries.push({id:Date.now(),date:ds,hours:h});
-  save();document.getElementById("fh").value="";renderLog();
-}
-
-function del(id){
-  if(!confirm("Remove this shift?")) return;
-  entries=entries.filter(e=>e.id!==id);
-  save();renderLog();
-}
-
-// ── WEEKLY ──
-function renderWk(){
-  const wt=getWkTotals();
-  const allD=[...CL.map(c=>c.d),...entries.map(e=>e.date)];
-  const wks=[...new Set(allD.map(d=>wkStart(d)))].sort();
-  if(!wks.length){document.getElementById("wklist").innerHTML='<div class="empty-msg" style="padding:12px">No data yet.</div>';return;}
-  let html="";
-  wks.forEach(wk=>{
-    const h=wt[wk]||0,pct=Math.min(h/24*100,100);
-    const ov=h>24,warn=h>=20,bc=ov?"#f44":warn?"#fa0":"#00b055";
-    const we=new Date(wk+"T12:00:00");we.setDate(we.getDate()+6);
-    const wCls=CL.filter(c=>wkStart(c.d)===wk);
-    const avDays=[];
-    const ws=new Date(wk+"T12:00:00");
-    for(let i=0;i<7;i++){const d=new Date(ws);d.setDate(ws.getDate()+i);const ds=toDS(d);if(isAvail(ds))avDays.push(d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}));}
-    html+=`<div class="wk-card" style="border-left:3px solid ${bc}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div><div style="font-size:9px;color:#555">WEEK OF</div><div style="font-size:12px;font-weight:600">${fmt(wk)} – ${fmt(toDS(we))}</div></div>
-        <div style="text-align:right"><div style="font-size:20px;font-weight:700;color:${bc};line-height:1">${h.toFixed(1)}<span style="font-size:11px">/24h</span></div><div style="font-size:9px;color:${bc}">${ov?"⚠ OVER":warn?"⚠ NEAR":"✓ OK"}</div></div>
-      </div>
-      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${bc}"></div></div>
-      <div style="font-size:10px;color:#555">${Math.max(0,24-h).toFixed(1)}h remaining this week</div>`;
-    if(wCls.length){
-      html+=`<div class="tags">`;
-      wCls.forEach(c=>{html+=`<span class="tag tag-${c.t}">${TLABEL[c.t]} · ${fmt(c.d)}</span>`;});
-      html+=`</div>`;
-    }
-    if(avDays.length){
-      html+=`<div style="font-size:9px;color:#285028;margin-top:8px;margin-bottom:4px">✓ AVAILABLE FOR COSTCO</div><div class="tags">`;
-      avDays.forEach(d=>{html+=`<span class="tag tag-av">${d}</span>`;});
-      html+=`</div>`;
-    }
-    html+=`</div>`;
-  });
-  document.getElementById("wklist").innerHTML=html;
-}
-
-// Init
-renderCal();renderLog();
-</script>
 </body>
 </html>
