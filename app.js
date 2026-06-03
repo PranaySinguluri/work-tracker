@@ -40,10 +40,9 @@
     console.log('STEP 1');
     showLoadingStep();
     try {
-      console.log('STEP 2');
-      await GCalendar.init("899491417864-hfdfqurf3rvcoic9j3s2kj9sqa1ff111.apps.googleusercontent.com");
-
-      console.log('STEP 3');
+      console.log('BEFORE INIT');
+      await GCalendar.init(CLIENT_ID);
+      console.log('AFTER INIT');
 
       GCalendar.requestSignIn();
 
@@ -75,9 +74,7 @@
       console.log('STEP 7');
 
     } catch (e) {
-
-      console.error(e);
-
+        console.error('INIT ERROR:', e);
     }
   }
 
