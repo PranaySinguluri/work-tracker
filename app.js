@@ -38,13 +38,10 @@
   }
   async function signInWithGoogle() {
     console.log('STEP 1');
-
     showLoadingStep();
-
     try {
       console.log('STEP 2');
-
-      await GCalendar.init(CLIENT_ID);
+      await GCalendar.init("899491417864-hfdfqurf3rvcoic9j3s2kj9sqa1ff111.apps.googleusercontent.com");
 
       console.log('STEP 3');
 
