@@ -50,10 +50,13 @@ const GCalendar = (() => {
   }
 
   function _createTokenClient(resolve, reject) {
+    let callbackFired = false;
+    
     tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: SCOPES,
       callback: async (resp) => {
+        callbackFired = true;
         if (resp.error) { 
           reject(new Error(resp.error)); 
           return; 
@@ -70,11 +73,20 @@ const GCalendar = (() => {
             path: 'https://www.googleapis.com/oauth2/v1/userinfo',
           });
           userEmail = profile.result.email || '';
-        } catch(_) {}
+        } catch(e) {
+          console.warn('Could not fetch user profile:', e);
+        }
         isConnected = true;
         resolve({ connected: true, email: userEmail });
       }
     });
+    
+    // Set a timeout - if callback doesn't fire in 60s, reject
+    setTimeout(() => {
+      if (!callbackFired) {
+        reject(new Error('OAuth sign-in timeout - check your Client ID and internet connection'));
+      }
+    }, 60000);
   }
 
   // ── Request OAuth2 Sign In ───────────────────────────────

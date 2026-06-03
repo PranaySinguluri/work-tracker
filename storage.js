@@ -83,6 +83,7 @@ const Storage = (() => {
     getNotes, saveNotes,
     getPrefs, savePrefs,
     getCreds, saveCreds, clearCreds,
+    getGCalCreds: getCreds, saveGCalCreds: saveCreds, clearGCalCreds: clearCreds,
     getSession, saveSession, clearSession
   };
 })();

@@ -42,16 +42,27 @@
     try {
       await GCalendar.init(CLIENT_ID);
       GCalendar.requestSignIn();
-      // Wait for OAuth callback
-      setTimeout(() => {
-        const status = GCalendar.getStatus();
-        if (status.isConnected) {
-          loginSuccess();
-        } else {
-          showLoadingStep();
-        }
-      }, 2000);
+      
+      // Wait for OAuth callback with timeout
+      await new Promise((resolve, reject) => {
+        const maxWait = 120000; // 2 minutes
+        const checkInterval = setInterval(() => {
+          const status = GCalendar.getStatus();
+          if (status.isConnected) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 500);
+        
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          reject(new Error('Sign-in timeout. Check your Client ID.'));
+        }, maxWait);
+      });
+      
+      loginSuccess();
     } catch(e) {
+      console.error('Sign-in error:', e);
       showToast('Sign-in failed: ' + e.message);
       showSignInStep();
     }
