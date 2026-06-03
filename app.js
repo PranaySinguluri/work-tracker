@@ -67,6 +67,25 @@
       showSignInStep();
     }
   }
+  function loginSuccess() {
+    console.log('LOGIN SUCCESS START');
+    const status = GCalendar.getStatus();
+    console.log('STATUS:', status);
+    Storage.setUser(status.userEmail);
+    Storage.saveSession({
+      email: status.userEmail
+    });
+    console.log('SESSION SAVED');
+    isLoggedIn = true;
+    showAppShell();
+    console.log('APP SHELL SHOWN');
+    setupAppUI();
+    console.log('UI SETUP COMPLETE');
+    updateUserInfo();
+    console.log('USER INFO UPDATED');
+    renderUpcoming();
+    console.log('LOGIN SUCCESS END');
+  }
 
   function loginSuccess() {
     const status = GCalendar.getStatus();
