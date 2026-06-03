@@ -35,35 +35,57 @@
       btn.addEventListener('click', signInWithGoogle);
     }
   }
-  function signInWithGoogle() {
+  async function signInWithGoogle() {
     console.log('STEP 1');
     showLoadingStep();
+
     try {
       console.log('BEFORE INIT');
-      await GCalendar.init(CLIENT_ID);
+
+      await Promise.resolve(GCalendar.init(CLIENT_ID));
+
       console.log('AFTER INIT');
-      GCalendar.requestSignIn();
+
+      await Promise.resolve(GCalendar.requestSignIn());
+
       console.log('STEP 4');
+
       await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          clearInterval(checkInterval);
+          reject(new Error("Login timeout"));
+        }, 15000);
+
         const checkInterval = setInterval(() => {
           const status = GCalendar.getStatus();
           console.log('STATUS', status);
-          if (status.isConnected) {
+
+          if (status?.isConnected) {
             console.log('STEP 5');
             clearInterval(checkInterval);
+            clearTimeout(timeout);
             resolve();
+          }
+
+          if (status?.error) {
+            clearInterval(checkInterval);
+            clearTimeout(timeout);
+            reject(status.error);
           }
         }, 500);
       });
+
       console.log('STEP 6');
       loginSuccess();
 
       console.log('STEP 7');
 
     } catch (e) {
-        console.error('INIT ERROR:', e);
+      console.error('INIT ERROR:', e);
+      showError("Google Sign-In failed");
     }
   }
+  ``
 
 //  async function signInWithGoogle() {
 //    showLoadingStep();
