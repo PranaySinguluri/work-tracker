@@ -11,162 +11,264 @@ const GCalendar = (() => {
   let isConnected = false;
   let userEmail = '';
   let userCalendarId = 'primary';
+  let initialized = false;
 
   let tokenClient = null;
   let clientId = '';
 
   async function init(cid) {
-    clientId = cid;
 
-    return new Promise((resolve, reject) => {
-
-      if (window.gapi) {
-        _loadGapi(resolve, reject);
-      } else {
-
-        const script =
-          document.createElement('script');
-
-        script.src =
-          'https://apis.google.com/js/api.js';
-
-        script.onload =
-          () => _loadGapi(resolve, reject);
-
-        script.onerror =
-          () => reject(
-            new Error('Failed to load Google API')
-          );
-
-        document.head.appendChild(script);
-      }
-
-    });
-  }
-
-  function _loadGapi(resolve, reject) {
-
-    window.gapi.load('client', async () => {
-
-      try {
-
-        await window.gapi.client.init({
-          discoveryDocs: [DISCOVERY_DOC]
-        });
-
-        _loadGsi(resolve, reject);
-
-      } catch (e) {
-        reject(e);
-      }
-
-    });
-
-  }
-
-  function _loadGsi(resolve, reject) {
-
-    if (
-      window.google &&
-      window.google.accounts
-    ) {
-      _createTokenClient(resolve, reject);
+    if (initialized) {
+      console.log("INIT already done");
       return;
     }
 
-    const script =
-      document.createElement('script');
+    clientId = cid;
 
-    script.src =
-      'https://accounts.google.com/gsi/client';
+    return new Promise((resolve, reject) => {
+      console.log("INIT start");
 
-    script.onload =
-      () => _createTokenClient(resolve, reject);
+      function createClient() {
+        console.log("CREATING TOKEN CLIENT...");
 
-    script.onerror =
-      () => reject(
-        new Error('Failed to load Google Identity')
-      );
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: SCOPES,
 
-    document.head.appendChild(script);
+          callback: (resp) => {
+            console.log("TOKEN RESPONSE:", resp);
 
-  }
+            if (resp.error) {
+              console.error("OAuth error", resp);
+              return;
+            }
 
-  function _createTokenClient(resolve, reject) {
+            const creds = Storage.getGCalCreds() || {};
 
-    tokenClient =
-      window.google.accounts.oauth2.initTokenClient({
-
-        client_id: clientId,
-
-        scope: SCOPES,
-
-        callback: async (resp) => {
-
-          if (resp.error) {
-            reject(new Error(resp.error));
-            return;
-          }
-
-          try {
-
-            const creds =
-              Storage.getGCalCreds() || {};
-
-            creds.accessToken =
-              resp.access_token;
+            creds.accessToken = resp.access_token;
 
             if (resp.expires_in) {
-              creds.expiresAt =
-                Date.now() +
-                (resp.expires_in * 1000);
+              creds.expiresAt = Date.now() + resp.expires_in * 1000;
             }
 
             userEmail = 'Connected';
             creds.email = userEmail;
-            Storage.saveGCalCreds(
-              creds
-            );
 
-            userCalendarId =
-              creds.calendarId || 'primary';
+            Storage.saveGCalCreds(creds);
+
+            userCalendarId = creds.calendarId || 'primary';
 
             isConnected = true;
 
-            resolve({
-              connected: true,
-              email: userEmail
-            });
+            console.log("✅ CONNECTED");
+          }
+        });
 
-          } catch (e) {
+        console.log("✅ tokenClient created:", tokenClient);
 
-            console.error(
-              'OAuth callback failure',
-              e
-            );
+        initialized = true;
 
-            reject(e);
+        resolve(); // ✅ ONLY resolve after tokenClient exists
+      }
 
+      // ✅ FIX: Always wait for script if not ready
+      if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+        createClient();
+        return;
+      }
+
+      // ✅ LOAD script and WAIT
+      const existingScript = document.querySelector(
+          'script[src="https://accounts.google.com/gsi/client"]'
+      );
+
+      if (existingScript) {
+        console.log("GSI script already present, waiting...");
+        existingScript.onload = createClient;
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+
+      script.onload = () => {
+        console.log("✅ GSI loaded");
+        createClient();
+      };
+
+      script.onerror = () => reject(new Error("Failed to load GSI"));
+
+      document.head.appendChild(script);
+    });
+  }
+  // function _loadGapi(resolve, reject) {
+  //
+  //   window.gapi.load('client', async () => {
+  //
+  //     try {
+  //
+  //       await window.gapi.client.init({
+  //         discoveryDocs: [DISCOVERY_DOC]
+  //       });
+  //
+  //       _loadGsi(resolve, reject);
+  //
+  //     } catch (e) {
+  //       reject(e);
+  //     }
+  //
+  //   });
+  //
+  // }
+  //
+  // function _loadGsi(resolve, reject) {
+  //
+  //   if (
+  //     window.google &&
+  //     window.google.accounts
+  //   ) {
+  //     _createTokenClient(resolve, reject);
+  //     return;
+  //   }
+  //
+  //   const script =
+  //     document.createElement('script');
+  //
+  //   script.src =
+  //     'https://accounts.google.com/gsi/client';
+  //
+  //   script.onload =
+  //     () => _createTokenClient(resolve, reject);
+  //
+  //   script.onerror =
+  //     () => reject(
+  //       new Error('Failed to load Google Identity')
+  //     );
+  //
+  //   document.head.appendChild(script);
+  //
+  // }
+
+  // function _createTokenClient(resolve, reject) {
+  //
+  //   tokenClient =
+  //     window.google.accounts.oauth2.initTokenClient({
+  //
+  //       client_id: clientId,
+  //       scope: SCOPES,
+  //       callback: async (resp) => {
+  //         if (resp.error) {
+  //           reject(new Error(resp.error));
+  //           return;
+  //         }
+  //         try {
+  //           const creds =
+  //             Storage.getGCalCreds() || {};
+  //           creds.accessToken = resp.access_token;
+  //
+  //           if (resp.expires_in) {
+  //             creds.expiresAt =
+  //               Date.now() +
+  //               (resp.expires_in * 1000);
+  //           }
+  //
+  //           userEmail = 'Connected';
+  //           creds.email = userEmail;
+  //           Storage.saveGCalCreds(
+  //             creds
+  //           );
+  //
+  //           userCalendarId =
+  //             creds.calendarId || 'primary';
+  //
+  //           isConnected = true;
+  //
+  //           resolve({
+  //             connected: true,
+  //             email: userEmail
+  //           });
+  //
+  //         } catch (e) {
+  //
+  //           console.error(
+  //             'OAuth callback failure',
+  //             e
+  //           );
+  //
+  //           reject(e);
+  //
+  //         }
+  //
+  //       }
+  //
+  //     });
+  //
+  // }
+  function _createTokenClient(resolve, reject) {
+
+    console.log("CREATING TOKEN CLIENT...");
+
+    try {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: SCOPES,
+
+        callback: (resp) => {
+          console.log("TOKEN RESPONSE:", resp);
+
+          if (resp.error) {
+            console.error("OAuth error", resp);
+            return;
           }
 
-        }
+          const creds = Storage.getGCalCreds() || {};
 
+          creds.accessToken = resp.access_token;
+
+          if (resp.expires_in) {
+            creds.expiresAt = Date.now() + (resp.expires_in * 1000);
+          }
+
+          userEmail = 'Connected';
+          creds.email = userEmail;
+
+          Storage.saveGCalCreds(creds);
+
+          userCalendarId = creds.calendarId || 'primary';
+
+          isConnected = true;
+
+          console.log("✅ CONNECTED");
+        }
       });
 
+      console.log("✅ tokenClient created:", tokenClient);
+
+      // ✅ IMPORTANT FIX — defer resolve to next tick
+      setTimeout(() => resolve(), 0);
+
+    } catch (e) {
+      console.error("Token client creation failed", e);
+      reject(e);
+    }
   }
 
   function requestSignIn() {
 
+    console.log("READ tokenClient:", tokenClient);
+
     if (!tokenClient) {
-      throw new Error(
-        'GCalendar not initialized'
-      );
+      throw new Error('GCalendar not initialized (tokenClient missing)');
     }
 
-    tokenClient.requestAccessToken({
-      prompt: 'consent'
-    });
-
+    try {
+      tokenClient.requestAccessToken({
+        prompt: 'consent'
+      });
+    } catch (e) {
+      console.error("requestAccessToken failed", e);
+      throw e;
+    }
   }
 
   async function autoReconnect() {

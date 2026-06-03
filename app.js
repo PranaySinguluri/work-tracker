@@ -42,11 +42,11 @@
     try {
       console.log('BEFORE INIT');
 
-      await Promise.resolve(GCalendar.init(CLIENT_ID));
+     await GCalendar.init(CLIENT_ID);
 
       console.log('AFTER INIT');
 
-      await Promise.resolve(GCalendar.requestSignIn());
+      await GCalendar.requestSignIn();
 
       console.log('STEP 4');
 
@@ -616,6 +616,9 @@
     const ampm = h < 12 ? 'AM' : 'PM';
     const h12  = h % 12 || 12;
     return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+  }
+  function showError(msg) {
+    showToast(msg);
   }
 
 })();
