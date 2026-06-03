@@ -1,248 +1,430 @@
 /* google-calendar.js — OAuth2 authentication & Google Calendar API */
 
 const GCalendar = (() => {
-  const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-  const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
 
-  let isConnected = false;
-  let userEmail = '';
-  let userCalendarId = 'primary';
-  let tokenClient = null;
-  let clientId = '';
+const DISCOVERY_DOC =
+'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 
-  // ── Initialize OAuth2 ────────────────────────────────────
-  async function init(cid) {
-    clientId = cid;
-    return new Promise((resolve, reject) => {
-      if (window.gapi) {
-        _loadGapi(resolve, reject);
-      } else {
-        const script = document.createElement('script');
-        script.src = 'https://apis.google.com/js/api.js';
-        script.onload = () => _loadGapi(resolve, reject);
-        script.onerror = () => reject(new Error('Failed to load Google API'));
-        document.head.appendChild(script);
-      }
-    });
+const SCOPES =
+'https://www.googleapis.com/auth/calendar';
+
+let isConnected = false;
+let userEmail = '';
+let userCalendarId = 'primary';
+
+let tokenClient = null;
+let clientId = '';
+
+async function init(cid) {
+clientId = cid;
+
+```
+return new Promise((resolve, reject) => {
+
+  if (window.gapi) {
+    loadGapi(resolve, reject);
+    return;
   }
 
-  function _loadGapi(resolve, reject) {
-    window.gapi.load('client', async () => {
+  const script = document.createElement('script');
+
+  script.src =
+    'https://apis.google.com/js/api.js';
+
+  script.onload =
+    () => loadGapi(resolve, reject);
+
+  script.onerror =
+    () => reject(
+      new Error('Failed to load Google API')
+    );
+
+  document.head.appendChild(script);
+
+});
+```
+
+}
+
+function loadGapi(resolve, reject) {
+
+```
+window.gapi.load('client', async () => {
+
+  try {
+
+    await window.gapi.client.init({
+      discoveryDocs: [DISCOVERY_DOC]
+    });
+
+    loadGsi(resolve, reject);
+
+  } catch (e) {
+    reject(e);
+  }
+
+});
+```
+
+}
+
+function loadGsi(resolve, reject) {
+
+```
+if (
+  window.google &&
+  window.google.accounts
+) {
+  createTokenClient(resolve, reject);
+  return;
+}
+
+const script =
+  document.createElement('script');
+
+script.src =
+  'https://accounts.google.com/gsi/client';
+
+script.onload =
+  () => createTokenClient(resolve, reject);
+
+script.onerror =
+  () => reject(
+    new Error('Failed to load Google Identity')
+  );
+
+document.head.appendChild(script);
+```
+
+}
+
+function createTokenClient(resolve, reject) {
+
+```
+tokenClient =
+  window.google.accounts.oauth2.initTokenClient({
+
+    client_id: clientId,
+
+    scope: SCOPES,
+
+    callback: async (resp) => {
+
       try {
-        await window.gapi.client.init({
-          discoveryDocs: [DISCOVERY_DOC],
-        });
-        _loadGsi(resolve, reject);
-      } catch(e) { reject(e); }
-    });
-  }
 
-  function _loadGsi(resolve, reject) {
-    if (window.google && window.google.accounts) {
-      _createTokenClient(resolve, reject);
-    } else {
-      const s = document.createElement('script');
-      s.src = 'https://accounts.google.com/gsi/client';
-      s.onload = () => _createTokenClient(resolve, reject);
-      s.onerror = () => reject(new Error('Failed to load GSI'));
-      document.head.appendChild(s);
-    }
-  }
-
-  function _createTokenClient(resolve, reject) {
-    let callbackFired = false;
-    
-    tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: SCOPES,
-      callback: async (resp) => {
-        callbackFired = true;
-        if (resp.error) { 
-          reject(new Error(resp.error)); 
-          return; 
+        if (resp.error) {
+          reject(
+            new Error(resp.error)
+          );
+          return;
         }
-        // Save token
-        const creds = Storage.getGCalCreds() || {};
-        creds.accessToken = resp.access_token;
-        creds.expiresAt = Date.now() + (resp.expires_in * 1000);
-        Storage.saveGCalCreds(creds);
-        
-        // Get user profile
+
+        const creds =
+          Storage.getGCalCreds() || {};
+
+        creds.accessToken =
+          resp.access_token;
+
+        if (resp.expires_in) {
+          creds.expiresAt =
+            Date.now() +
+            (resp.expires_in * 1000);
+        }
+
         try {
-          const profile = await window.gapi.client.request({
-            path: 'https://www.googleapis.com/oauth2/v1/userinfo',
-          });
-          userEmail = profile.result.email || '';
-        } catch(e) {
-          console.warn('Could not fetch user profile:', e);
+
+          const profile =
+            await window.gapi.client.request({
+              path:
+                'https://www.googleapis.com/oauth2/v1/userinfo'
+            });
+
+          userEmail =
+            profile?.result?.email || '';
+
+          creds.email =
+            userEmail;
+
+        } catch (profileError) {
+
+          console.warn(
+            'Profile lookup failed',
+            profileError
+          );
+
         }
+
+        Storage.saveGCalCreds(
+          creds
+        );
+
         isConnected = true;
-        resolve({ connected: true, email: userEmail });
+
+        resolve({
+          connected: true,
+          email: userEmail
+        });
+
+      } catch (e) {
+
+        console.error(
+          'OAuth callback failure',
+          e
+        );
+
+        reject(e);
       }
-    });
-    
-    // Set a timeout - if callback doesn't fire in 60s, reject
-    setTimeout(() => {
-      if (!callbackFired) {
-        reject(new Error('OAuth sign-in timeout - check your Client ID and internet connection'));
-      }
-    }, 60000);
-  }
 
-  // ── Request OAuth2 Sign In ───────────────────────────────
-  function requestSignIn() {
-    if (!tokenClient) throw new Error('GCalendar not initialized');
-    tokenClient.requestAccessToken({ prompt: 'consent' });
-  }
-
-  // ── Auto-reconnect with stored token ─────────────────────
-  async function autoReconnect() {
-    const creds = Storage.getGCalCreds();
-    if (!creds || !creds.accessToken) return false;
-
-    // Check if token expired
-    if (creds.expiresAt && Date.now() > creds.expiresAt) {
-      // Token expired — for now, require re-signin (refresh token not stored in this flow)
-      Storage.clearGCalCreds();
-      return false;
     }
 
-    try {
-      // Verify token still works by getting user profile
-      await window.gapi.client.request({
-        path: 'https://www.googleapis.com/oauth2/v1/userinfo',
-      });
-      userEmail = creds.email || '';
-      userCalendarId = creds.calendarId || 'primary';
-      isConnected = true;
-      return true;
-    } catch(e) {
-      Storage.clearGCalCreds();
-      return false;
+  });
+```
+
+}
+
+function requestSignIn() {
+
+```
+if (!tokenClient) {
+  throw new Error(
+    'GCalendar not initialized'
+  );
+}
+
+tokenClient.requestAccessToken({
+  prompt: 'consent'
+});
+```
+
+}
+
+async function autoReconnect() {
+
+```
+const creds =
+  Storage.getGCalCreds();
+
+if (
+  !creds ||
+  !creds.accessToken
+) {
+  return false;
+}
+
+if (
+  creds.expiresAt &&
+  Date.now() > creds.expiresAt
+) {
+
+  Storage.clearGCalCreds();
+  return false;
+
+}
+
+try {
+
+  userEmail =
+    creds.email || '';
+
+  userCalendarId =
+    creds.calendarId || 'primary';
+
+  isConnected = true;
+
+  return true;
+
+} catch (e) {
+
+  Storage.clearGCalCreds();
+
+  return false;
+}
+```
+
+}
+
+async function listCalendars() {
+
+```
+if (!isConnected) {
+  throw new Error(
+    'Not connected'
+  );
+}
+
+const resp =
+  await window.gapi.client.calendar.calendarList.list();
+
+return resp.result.items || [];
+```
+
+}
+
+async function createCalendar(name) {
+
+```
+if (!isConnected) {
+  throw new Error(
+    'Not connected'
+  );
+}
+
+const resp =
+  await window.gapi.client.calendar.calendars.insert({
+    resource: {
+      summary: name,
+      description:
+        'Class & Work schedule'
     }
+  });
+
+return resp.result.id;
+```
+
+}
+
+function setCalendarId(id) {
+
+```
+userCalendarId = id;
+
+const creds =
+  Storage.getGCalCreds();
+
+if (creds) {
+
+  creds.calendarId = id;
+
+  Storage.saveGCalCreds(
+    creds
+  );
+
+}
+```
+
+}
+
+async function createEvent(event) {
+
+```
+const resp =
+  await window.gapi.client.calendar.events.insert({
+    calendarId:
+      userCalendarId,
+    resource:
+      toGCalBody(event)
+  });
+
+return resp.result;
+```
+
+}
+
+async function updateEvent(
+gcalEventId,
+event
+) {
+
+```
+const resp =
+  await window.gapi.client.calendar.events.update({
+    calendarId:
+      userCalendarId,
+    eventId:
+      gcalEventId,
+    resource:
+      toGCalBody(event)
+  });
+
+return resp.result;
+```
+
+}
+
+async function deleteEvent(
+gcalEventId
+) {
+
+```
+await window.gapi.client.calendar.events.delete({
+  calendarId:
+    userCalendarId,
+  eventId:
+    gcalEventId
+});
+```
+
+}
+
+function toGCalBody(event) {
+
+```
+const tz =
+  Intl.DateTimeFormat()
+  .resolvedOptions()
+  .timeZone;
+
+return {
+
+  summary:
+    event.title,
+
+  description:
+    event.notes || '',
+
+  start: {
+    dateTime:
+      `${event.date}T${event.startTime}:00`,
+    timeZone: tz
+  },
+
+  end: {
+    dateTime:
+      `${event.date}T${event.endTime}:00`,
+    timeZone: tz
   }
 
-  // ── Get list of user's calendars ─────────────────────────
-  async function listCalendars() {
-    if (!isConnected) throw new Error('Not connected');
-    const resp = await window.gapi.client.calendar.calendarList.list();
-    return resp.result.items || [];
-  }
+};
+```
 
-  // ── Create a new calendar ────────────────────────────────
-  async function createCalendar(name) {
-    if (!isConnected) throw new Error('Not connected');
-    const resp = await window.gapi.client.calendar.calendars.insert({
-      resource: {
-        summary: name,
-        description: 'Class & Work schedule'
-      }
-    });
-    return resp.result.id;
-  }
+}
 
-  // ── Set the user's calendar ──────────────────────────────
-  function setCalendarId(calId) {
-    userCalendarId = calId;
-    const creds = Storage.getGCalCreds();
-    if (creds) {
-      creds.calendarId = calId;
-      Storage.saveGCalCreds(creds);
-    }
-  }
+function getStatus() {
 
-  // ── Create Event ─────────────────────────────────────────
-  async function createEvent(event) {
-    if (!isConnected) throw new Error('Not connected');
-    const body = toGCalBody(event);
-    const resp = await window.gapi.client.calendar.events.insert({
-      calendarId: userCalendarId,
-      resource: body,
-    });
-    return resp.result;
-  }
+```
+return {
+  isConnected,
+  userEmail,
+  userCalendarId
+};
+```
 
-  // ── Update Event ─────────────────────────────────────────
-  async function updateEvent(gcalEventId, event) {
-    if (!isConnected) throw new Error('Not connected');
-    const body = toGCalBody(event);
-    const resp = await window.gapi.client.calendar.events.update({
-      calendarId: userCalendarId,
-      eventId: gcalEventId,
-      resource: body,
-    });
-    return resp.result;
-  }
+}
 
-  // ── Delete Event ─────────────────────────────────────────
-  async function deleteEvent(gcalEventId) {
-    if (!isConnected) throw new Error('Not connected');
-    await window.gapi.client.calendar.events.delete({
-      calendarId: userCalendarId,
-      eventId: gcalEventId,
-    });
-  }
+function signOut() {
 
-  // ── Sync selected events ─────────────────────────────────
-  async function syncEvents(events, types) {
-    const toSync = events.filter(e => types.includes(e.type) && e.date);
-    const results = { success: 0, failed: 0 };
-    for (const ev of toSync) {
-      try {
-        if (ev.gcalEventId) {
-          await updateEvent(ev.gcalEventId, ev);
-        } else {
-          const created = await createEvent(ev);
-          Storage.updateEvent(ev.id, { gcalEventId: created.id });
-          ev.gcalEventId = created.id;
-        }
-        results.success++;
-      } catch(e) {
-        results.failed++;
-      }
-    }
-    return results;
-  }
+```
+isConnected = false;
+userEmail = '';
+userCalendarId = 'primary';
 
-  // ── Convert local event to GCal format ────────────────────
-  function toGCalBody(event) {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const start = event.startTime
-      ? { dateTime: `${event.date}T${event.startTime}:00`, timeZone: tz }
-      : { date: event.date };
-    const end = event.endTime
-      ? { dateTime: `${event.date}T${event.endTime}:00`, timeZone: tz }
-      : start;
+Storage.clearGCalCreds();
+```
 
-    return {
-      summary: event.title,
-      description: event.notes || '',
-      start,
-      end,
-      colorId: typeToColorId(event.type),
-    };
-  }
+}
 
-  function typeToColorId(type) {
-    const map = { lecture: '9', lab: '10', exam: '11', work: '3', other: '8' };
-    return map[type] || '8';
-  }
+return {
+init,
+requestSignIn,
+autoReconnect,
+listCalendars,
+createCalendar,
+setCalendarId,
+createEvent,
+updateEvent,
+deleteEvent,
+getStatus,
+signOut
+};
 
-  function getStatus() { 
-    return { isConnected, userEmail, userCalendarId }; 
-  }
-
-  function signOut() {
-    isConnected = false;
-    userEmail = '';
-    userCalendarId = 'primary';
-    Storage.clearGCalCreds();
-  }
-
-  return { 
-    init, requestSignIn, autoReconnect, 
-    listCalendars, createCalendar, setCalendarId,
-    createEvent, updateEvent, deleteEvent, syncEvents, 
-    getStatus, signOut 
-  };
 })();
