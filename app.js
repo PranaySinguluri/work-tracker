@@ -9,7 +9,6 @@
   let draftEvents     = [];
   let editShiftId     = null;
   let isLoggedIn      = false;
-
   document.addEventListener('DOMContentLoaded', async () => {
     const session = Storage.getSession();
     if (session && session.email) {
@@ -43,32 +42,20 @@
       console.log('BEFORE INIT');
       await GCalendar.init(CLIENT_ID);
       console.log('AFTER INIT');
-
       GCalendar.requestSignIn();
-
       console.log('STEP 4');
-
       await new Promise((resolve, reject) => {
-
         const checkInterval = setInterval(() => {
-
           const status = GCalendar.getStatus();
-
           console.log('STATUS', status);
-
           if (status.isConnected) {
             console.log('STEP 5');
-
             clearInterval(checkInterval);
             resolve();
           }
-
         }, 500);
-
       });
-
       console.log('STEP 6');
-
       loginSuccess();
 
       console.log('STEP 7');
