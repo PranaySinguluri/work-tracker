@@ -1,15 +1,103 @@
-/* app.js — Main application controller */
+/* app.js — Main application with OAuth2 login & auto-reconnect */
 
 (function() {
   'use strict';
 
-  // ── State ─────────────────────────────────────────────────
-  let currentEventId  = null;   // event being edited
-  let draftEvents     = [];     // OCR-detected draft events
-  let editShiftId     = null;   // shift being edited
+  let currentEventId  = null;
+  let draftEvents     = [];
+  let editShiftId     = null;
+  let clientId        = '';
+  let isLoggedIn      = false;
 
-  // ── Init ──────────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
+    setupLoginScreen();
+    const session = Storage.getSession();
+    if (session && session.clientId) {
+      showLoadingStep();
+      try {
+        await GCalendar.init(session.clientId);
+        const reconnected = await GCalendar.autoReconnect();
+        if (reconnected) {
+          loginSuccess(session.clientId);
+          return;
+        }
+      } catch(e) {
+        console.warn('Auto-reconnect failed:', e);
+      }
+      showSignInStep();
+    }
+  });
+
+  function setupLoginScreen() {
+    document.getElementById('loginSaveCredsBtn').addEventListener('click', saveCredentials);
+    document.getElementById('loginGoogleBtn').addEventListener('click', signInWithGoogle);
+    document.getElementById('loginChangeCreds').addEventListener('click', () => showSetupStep());
+  }
+
+  function saveCredentials() {
+    const cid = document.getElementById('loginClientId').value.trim();
+    const apiKey = document.getElementById('loginApiKey').value.trim();
+    if (!cid) { showToast('Enter Client ID'); return; }
+    if (!apiKey) { showToast('Enter API Key'); return; }
+    clientId = cid;
+    Storage.saveSession({ clientId: cid, apiKey });
+    showSignInStep();
+  }
+
+  async function signInWithGoogle() {
+    showLoadingStep();
+    try {
+      await GCalendar.init(clientId);
+      GCalendar.requestSignIn();
+      setTimeout(() => {
+        const status = GCalendar.getStatus();
+        if (status.isConnected) {
+          loginSuccess(clientId);
+        } else {
+          showLoadingStep();
+        }
+      }, 2000);
+    } catch(e) {
+      showToast('Connection failed: ' + e.message);
+      showSignInStep();
+    }
+  }
+
+  function loginSuccess(cid) {
+    const status = GCalendar.getStatus();
+    Storage.setUser(status.userEmail);
+    Storage.saveSession({ clientId: cid, email: status.userEmail });
+    isLoggedIn = true;
+    showAppShell();
+    setupAppUI();
+    updateUserInfo();
+    renderUpcoming();
+  }
+
+  function showSetupStep() {
+    document.getElementById('loginSetupStep').classList.remove('hidden');
+    document.getElementById('loginSignInStep').classList.add('hidden');
+    document.getElementById('loginLoadingStep').classList.add('hidden');
+  }
+
+  function showSignInStep() {
+    document.getElementById('loginSetupStep').classList.add('hidden');
+    document.getElementById('loginSignInStep').classList.remove('hidden');
+    document.getElementById('loginLoadingStep').classList.add('hidden');
+  }
+
+  function showLoadingStep() {
+    document.getElementById('loginSetupStep').classList.add('hidden');
+    document.getElementById('loginSignInStep').classList.add('hidden');
+    document.getElementById('loginLoadingStep').classList.remove('hidden');
+  }
+
+  function showAppShell() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appShell').classList.remove('hidden');
+  }
+
+  function setupAppUI() {
     setupNav();
     setupDashboard();
     setupCalendar();
@@ -17,21 +105,28 @@
     setupImportModal();
     setupShiftModal();
     setupEventModal();
-    setupGCalModal();
+    setupCalendarSettings();
     setupModalCloseButtons();
-    updateGCalStatusDisplay();
-    renderUpcoming();
     setDashToday();
-  });
+    CalendarUI.init({ onEventClick, onDayClick });
+  }
 
-  // ── Navigation ────────────────────────────────────────────
+  function updateUserInfo() {
+    const status = GCalendar.getStatus();
+    document.getElementById('userName').textContent = status.userEmail.split('@')[0];
+    const prefs = Storage.getPrefs();
+    const calId = prefs.calendarId || 'primary';
+    document.getElementById('calendarIdInput').value = calId;
+    document.getElementById('calendarLabelInput').value = prefs.calendarLabel || 'Class & Work';
+    document.getElementById('settingsUserName').textContent = status.userEmail.split('@')[0];
+    document.getElementById('settingsUserEmail').textContent = status.userEmail;
+  }
+
   function setupNav() {
     document.querySelectorAll('[data-view]').forEach(btn => {
       btn.addEventListener('click', () => switchView(btn.dataset.view));
     });
-    document.querySelectorAll('[data-view-trigger]').forEach(btn => {
-      btn.addEventListener('click', () => switchView(btn.dataset.viewTrigger));
-    });
+    document.getElementById('signOutBtn').addEventListener('click', signOut);
   }
 
   function switchView(name) {
@@ -44,12 +139,9 @@
     if (name === 'calendar') CalendarUI.render();
   }
 
-  // ── Dashboard ─────────────────────────────────────────────
   function setupDashboard() {
     document.getElementById('openImportBtn').addEventListener('click', () => openModal('importModal'));
     document.getElementById('openShiftBtn').addEventListener('click', () => openShiftModal());
-    document.getElementById('gcalConnectBtn').addEventListener('click', () => openModal('gcalModal'));
-    document.getElementById('gcalStatus').addEventListener('click', () => openModal('gcalModal'));
   }
 
   function setDashToday() {
@@ -91,22 +183,15 @@
     });
   }
 
-  // ── Calendar ──────────────────────────────────────────────
   function setupCalendar() {
-    CalendarUI.init({
-      onEventClick: (id) => openEventModal(id),
-      onDayClick: (dateStr) => openEventModalNew(dateStr),
-    });
-    document.getElementById('calPrev').addEventListener('click', () => {
-      CalendarUI.prevMonth();
-    });
-    document.getElementById('calNext').addEventListener('click', () => {
-      CalendarUI.nextMonth();
-    });
+    document.getElementById('calPrev').addEventListener('click', () => CalendarUI.prevMonth());
+    document.getElementById('calNext').addEventListener('click', () => CalendarUI.nextMonth());
     document.getElementById('addEventFab').addEventListener('click', () => openEventModalNew());
   }
 
-  // ── Notes ─────────────────────────────────────────────────
+  function onEventClick(id) { openEventModal(id); }
+  function onDayClick(dateStr) { openEventModalNew(dateStr); }
+
   function setupNotes() {
     const area = document.getElementById('notesArea');
     const saved = document.getElementById('notesSaved');
@@ -122,7 +207,6 @@
     });
   }
 
-  // ── Import Modal (OCR) ────────────────────────────────────
   function setupImportModal() {
     const fileInput   = document.getElementById('fileInput');
     const cameraInput = document.getElementById('cameraInput');
@@ -131,14 +215,12 @@
     fileInput.addEventListener('change',   e => handleFile(e.target.files[0]));
     cameraInput.addEventListener('change', e => handleFile(e.target.files[0]));
 
-    // Drag & drop
     uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
     uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
     uploadZone.addEventListener('drop', e => {
       e.preventDefault();
       uploadZone.classList.remove('drag-over');
-      const f = e.dataTransfer.files[0];
-      if (f) handleFile(f);
+      if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
     });
 
     document.getElementById('detectEventsBtn').addEventListener('click', () => {
@@ -168,19 +250,16 @@
       document.getElementById('ocrText').value = text;
     } catch(e) {
       document.getElementById('ocrText').value = 'Could not extract text. Please type or paste your schedule below.';
-      setProgress(0, 'Error — try another file');
+      setProgress(0, 'Error');
     }
   }
 
   function showOcrSection() {
-    const sec = document.getElementById('ocrSection');
-    sec.classList.remove('hidden');
+    document.getElementById('ocrSection').classList.remove('hidden');
     document.getElementById('progressFill').style.width = '0%';
-    document.getElementById('progressLabel').textContent = 'Starting…';
     document.getElementById('ocrText').value = '';
   }
 
-  // ── Event Review Modal ────────────────────────────────────
   function openReviewModal() {
     renderDraftEvents();
     openModal('reviewModal');
@@ -196,7 +275,7 @@
       <div class="draft-event-card" data-draft-idx="${idx}">
         <div class="draft-row full">
           <span class="draft-label">Title</span>
-          <input type="text" class="draft-title" value="${escHtml(ev.title)}" placeholder="Event title" />
+          <input type="text" class="draft-title" value="${escHtml(ev.title)}" />
         </div>
         <div class="draft-row">
           <span class="draft-label">Type</span>
@@ -232,8 +311,7 @@
   }
 
   function collectDraftEdits() {
-    const cards = document.querySelectorAll('.draft-event-card');
-    cards.forEach(card => {
+    document.querySelectorAll('.draft-event-card').forEach(card => {
       const idx = parseInt(card.dataset.draftIdx);
       if (draftEvents[idx]) {
         draftEvents[idx].title     = card.querySelector('.draft-title').value.trim() || 'Event';
@@ -246,28 +324,24 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('addDraftEventBtn').addEventListener('click', () => {
-      draftEvents.push({ id: genId(), title: 'New Event', type: 'lecture', date: todayStr(), startTime: '', endTime: '', notes: '' });
-      renderDraftEvents();
-    });
-
-    document.getElementById('saveDraftEventsBtn').addEventListener('click', () => {
-      collectDraftEdits();
-      const valid = draftEvents.filter(e => e.title && e.date);
-      valid.forEach(ev => {
-        const toSave = { ...ev };
-        if (!toSave.id) toSave.id = genId();
-        Storage.addEvent(toSave);
+    if (document.getElementById('addDraftEventBtn')) {
+      document.getElementById('addDraftEventBtn').addEventListener('click', () => {
+        draftEvents.push({ id: genId(), title: 'New Event', type: 'lecture', date: todayStr(), startTime: '', endTime: '', notes: '' });
+        renderDraftEvents();
       });
-      closeModal('reviewModal');
-      renderUpcoming();
-      CalendarUI.render();
-      showToast(`${valid.length} event(s) saved ✓`);
-      draftEvents = [];
-    });
+      document.getElementById('saveDraftEventsBtn').addEventListener('click', () => {
+        collectDraftEdits();
+        const valid = draftEvents.filter(e => e.title && e.date);
+        valid.forEach(ev => Storage.addEvent({ ...ev }));
+        closeModal('reviewModal');
+        renderUpcoming();
+        CalendarUI.render();
+        showToast(`${valid.length} event(s) saved ✓`);
+        draftEvents = [];
+      });
+    }
   });
 
-  // ── Shift Modal ───────────────────────────────────────────
   function setupShiftModal() {
     document.getElementById('saveShiftBtn').addEventListener('click', saveShift);
   }
@@ -275,9 +349,8 @@
   function openShiftModal(id = null) {
     editShiftId = id;
     const title = document.getElementById('shiftModalTitle');
-    const evs = Storage.getEvents();
     if (id) {
-      const ev = evs.find(e => e.id === id);
+      const ev = Storage.getEventById(id);
       if (ev) {
         title.textContent = 'Edit Work Shift';
         document.getElementById('shiftTitle').value = ev.title;
@@ -314,7 +387,6 @@
     CalendarUI.render();
   }
 
-  // ── Event Modal (detail/edit) ─────────────────────────────
   function setupEventModal() {
     document.getElementById('saveEventBtn').addEventListener('click', saveEvent);
     document.getElementById('deleteEventBtn').addEventListener('click', () => {
@@ -379,85 +451,50 @@
     CalendarUI.render();
   }
 
-  // ── Google Calendar Modal ──────────────────────────────────
-  function setupGCalModal() {
-    const creds = Storage.getGCalCreds();
-    if (creds) {
-      showGCalConnected();
-    }
-
-    document.getElementById('gcalConnectConfirmBtn').addEventListener('click', async () => {
-      const clientId = document.getElementById('gcalClientId').value.trim();
-      const apiKey   = document.getElementById('gcalApiKey').value.trim();
-      if (!clientId || !apiKey) { showToast('Enter Client ID and API Key'); return; }
-      try {
-        showToast('Connecting…');
-        const result = await GCalendar.init({ clientId, apiKey });
-        Storage.saveGCalCreds({ clientId, apiKey });
-        showGCalConnected(result.email);
-        updateGCalStatusDisplay();
-        showToast('Connected to Google Calendar ✓');
-      } catch(e) {
-        showToast('Connection failed: ' + (e.message || 'Unknown error'));
-      }
-    });
-
-    document.getElementById('gcalDisconnectBtn').addEventListener('click', () => {
-      Storage.clearGCalCreds();
-      showGCalSetup();
-      updateGCalStatusDisplay();
-      showToast('Disconnected');
-    });
-
-    document.getElementById('gcalSyncNowBtn').addEventListener('click', syncToGCal);
+  function setupCalendarSettings() {
+    document.getElementById('saveCalSettingsBtn').addEventListener('click', saveCalendarSettings);
+    document.getElementById('settingsSignOutBtn').addEventListener('click', signOut);
   }
 
-  function showGCalConnected(email) {
-    document.getElementById('gcalSetupView').classList.add('hidden');
-    document.getElementById('gcalConnectedView').classList.remove('hidden');
-    const creds = Storage.getGCalCreds();
-    if (email) document.getElementById('gcalAccount').textContent = email;
-  }
-
-  function showGCalSetup() {
-    document.getElementById('gcalSetupView').classList.remove('hidden');
-    document.getElementById('gcalConnectedView').classList.add('hidden');
-  }
-
-  async function syncToGCal() {
+  async function saveCalendarSettings() {
+    const calId = document.getElementById('calendarIdInput').value.trim() || 'primary';
+    const label = document.getElementById('calendarLabelInput').value.trim() || 'Class & Work';
+    GCalendar.setCalendarId(calId);
+    Storage.savePrefs({ calendarId: calId, calendarLabel: label });
+    
     const types = [];
     if (document.getElementById('syncLecture').checked) types.push('lecture');
     if (document.getElementById('syncLab').checked)     types.push('lab');
     if (document.getElementById('syncExam').checked)    types.push('exam');
     if (document.getElementById('syncWork').checked)    types.push('work');
+    if (document.getElementById('syncOther')?.checked)  types.push('other');
+
     showToast('Syncing…');
     try {
       const events = Storage.getEvents();
       const result = await GCalendar.syncEvents(events, types);
+      closeModal('calSettingsModal');
       showToast(`Synced ${result.success} event(s)${result.failed ? ', ' + result.failed + ' failed' : ''}`);
     } catch(e) {
-      showToast('Sync failed: ' + (e.message || 'Check credentials'));
+      showToast('Sync failed: ' + (e.message || 'Check your calendar ID'));
     }
   }
 
-  function updateGCalStatusDisplay() {
-    const creds = Storage.getGCalCreds();
-    const dot   = document.querySelector('.gcal-dot');
-    const label = document.getElementById('gcalCardLabel');
-    if (creds) {
-      dot.className = 'gcal-dot connected';
-      if (label) label.textContent = 'Connected — click to sync';
-    } else {
-      dot.className = 'gcal-dot disconnected';
-      if (label) label.textContent = 'Connect to sync events';
+  function signOut() {
+    if (confirm('Sign out?')) {
+      GCalendar.signOut();
+      Storage.clearCreds();
+      Storage.clearSession();
+      isLoggedIn = false;
+      location.reload();
     }
   }
 
-  // ── Modal helpers ─────────────────────────────────────────
   function openModal(id) {
     const m = document.getElementById(id);
     if (m) m.classList.add('open');
   }
+
   function closeModal(id) {
     const m = document.getElementById(id);
     if (m) m.classList.remove('open');
@@ -474,7 +511,6 @@
     });
   }
 
-  // ── Toast ──────────────────────────────────────────────────
   function showToast(msg, duration = 2800) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -482,7 +518,6 @@
     setTimeout(() => t.classList.remove('show'), duration);
   }
 
-  // ── Utilities ─────────────────────────────────────────────
   function todayStr() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -500,7 +535,7 @@
 
   function formatDateLabel(dateStr) {
     if (!dateStr) return '';
-    const d = new Date(dateStr + 'T12:00:00'); // noon to avoid timezone issues
+    const d = new Date(dateStr + 'T12:00:00');
     const today = new Date();
     const diff = Math.round((d - new Date(todayStr() + 'T12:00:00')) / 86400000);
     if (diff === 0) return 'Today';
@@ -515,8 +550,5 @@
     const h12  = h % 12 || 12;
     return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
   }
-
-  // Expose helpers for modules
-  window.AppHelpers = { showToast, renderUpcoming, refreshCalendar: CalendarUI.render.bind(CalendarUI) };
 
 })();

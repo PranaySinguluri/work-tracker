@@ -8,120 +8,193 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet" />
-  <!-- Tesseract OCR -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
-  <!-- Top Nav -->
-  <header class="topnav">
-    <div class="topnav-brand">
-      <span class="brand-icon">◈</span>
-      <span class="brand-name">Class &amp; Work</span>
-    </div>
-    <nav class="topnav-links">
-      <button class="nav-btn active" data-view="dashboard">Dashboard</button>
-      <button class="nav-btn" data-view="calendar">Calendar</button>
-      <button class="nav-btn" data-view="notes">Notes</button>
-    </nav>
-    <div class="topnav-gcal" id="gcalStatus">
-      <span class="gcal-dot disconnected"></span>
-      <span class="gcal-label">Google Cal</span>
-    </div>
-  </header>
 
-  <!-- Main Content -->
-  <main class="main">
-
-    <!-- ── DASHBOARD VIEW ── -->
-    <section class="view active" id="view-dashboard">
-      <div class="dash-hero">
-        <h1 class="dash-title">Your Week<em>,</em> Organized.</h1>
-        <p class="dash-subtitle" id="dashToday"></p>
+  <!-- ══════════════════════════════════════════════════════
+       LOGIN SCREEN — shown until user signs in
+  ═══════════════════════════════════════════════════════ -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="login-brand">
+        <span class="login-icon">◈</span>
+        <h1>Class &amp; Work Calendar</h1>
+        <p>Your personal schedule, synced to Google Calendar.</p>
       </div>
 
-      <!-- Upcoming strip -->
-      <div class="upcoming-strip" id="upcomingStrip">
-        <p class="upcoming-empty">No upcoming events. Add a class or shift below.</p>
-      </div>
-
-      <!-- Cards -->
-      <div class="card-grid">
-        <button class="dash-card card-import" id="openImportBtn">
-          <div class="card-icon">📷</div>
-          <div class="card-content">
-            <h3>Import Class Schedule</h3>
-            <p>Photo, screenshot, or PDF</p>
-          </div>
-          <div class="card-arrow">→</div>
-        </button>
-
-        <button class="dash-card card-shift" id="openShiftBtn">
-          <div class="card-icon">💼</div>
-          <div class="card-content">
-            <h3>Add Work Shift</h3>
-            <p>Costco or custom shift</p>
-          </div>
-          <div class="card-arrow">→</div>
-        </button>
-
-        <button class="dash-card card-calendar" data-view-trigger="calendar">
-          <div class="card-icon">📅</div>
-          <div class="card-content">
-            <h3>Calendar Preview</h3>
-            <p>Monthly view</p>
-          </div>
-          <div class="card-arrow">→</div>
-        </button>
-
-        <button class="dash-card card-gcal" id="gcalConnectBtn">
-          <div class="card-icon">🔗</div>
-          <div class="card-content">
-            <h3>Google Calendar</h3>
-            <p id="gcalCardLabel">Connect to sync events</p>
-          </div>
-          <div class="card-arrow">→</div>
-        </button>
-      </div>
-    </section>
-
-    <!-- ── CALENDAR VIEW ── -->
-    <section class="view" id="view-calendar">
-      <div class="cal-header">
-        <button class="cal-nav" id="calPrev">‹</button>
-        <h2 class="cal-month-label" id="calMonthLabel"></h2>
-        <button class="cal-nav" id="calNext">›</button>
-      </div>
-      <div class="cal-legend">
-        <span class="legend-dot lecture"></span>Lecture
-        <span class="legend-dot lab"></span>Lab
-        <span class="legend-dot exam"></span>Exam
-        <span class="legend-dot work"></span>Work
-      </div>
-      <div class="cal-grid-wrap">
-        <div class="cal-dow">
-          <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+      <div id="loginSetupStep" class="login-step">
+        <p class="login-hint">First-time setup: enter your Google Cloud credentials. This is a one-time step.</p>
+        <div class="form-group">
+          <label class="field-label">Client ID</label>
+          <input class="field-input" id="loginClientId" type="text" placeholder="xxxx.apps.googleusercontent.com" />
         </div>
-        <div class="cal-grid" id="calGrid"></div>
+        <div class="form-group">
+          <label class="field-label">API Key</label>
+          <input class="field-input" id="loginApiKey" type="text" placeholder="AIza..." />
+        </div>
+        <details class="gcal-help">
+          <summary>How to get these</summary>
+          <ol>
+            <li>Go to <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a></li>
+            <li>Create a project → Enable <strong>Google Calendar API</strong></li>
+            <li>Credentials → <strong>+ Create → API Key</strong> → copy it</li>
+            <li>Credentials → <strong>+ Create → OAuth 2.0 Client ID</strong> (Web App)</li>
+            <li>Add your site URL to <strong>Authorized JavaScript Origins</strong></li>
+            <li>OAuth consent screen → Audience → <strong>Back to testing</strong> → add your email as test user</li>
+          </ol>
+        </details>
+        <button class="btn btn-primary btn-full" id="loginSaveCredsBtn">Save &amp; Continue →</button>
       </div>
-      <button class="fab" id="addEventFab">+ Event</button>
-    </section>
 
-    <!-- ── NOTES VIEW ── -->
-    <section class="view" id="view-notes">
-      <div class="notes-header">
-        <h2>Quick Notes</h2>
-        <span class="notes-saved" id="notesSaved">Auto-saved</span>
+      <div id="loginSignInStep" class="login-step hidden">
+        <div class="login-google-btn" id="loginGoogleBtn">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" width="20" />
+          Sign in with Google
+        </div>
+        <button class="btn btn-text" id="loginChangeCreds">Use different credentials</button>
       </div>
-      <textarea class="notes-area" id="notesArea" placeholder="Professor changed lab date...&#10;Assignment due Friday...&#10;Need to request day off..."></textarea>
-    </section>
 
-  </main>
+      <div id="loginLoadingStep" class="login-step hidden">
+        <div class="login-spinner"></div>
+        <p>Signing you in…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       MAIN APP — hidden until signed in
+  ═══════════════════════════════════════════════════════ -->
+  <div id="appShell" class="hidden">
+
+    <!-- Top Nav -->
+    <header class="topnav">
+      <div class="topnav-brand">
+        <span class="brand-icon">◈</span>
+        <span class="brand-name">Class &amp; Work</span>
+      </div>
+      <nav class="topnav-links">
+        <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+        <button class="nav-btn" data-view="calendar">Calendar</button>
+        <button class="nav-btn" data-view="notes">Notes</button>
+      </nav>
+      <div class="topnav-user" id="topnavUser">
+        <img class="user-avatar" id="userAvatar" src="" alt="" />
+        <span class="user-name" id="userName"></span>
+        <button class="signout-btn" id="signOutBtn">Sign out</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+
+      <!-- ── DASHBOARD VIEW ── -->
+      <section class="view active" id="view-dashboard">
+        <div class="dash-hero">
+          <h1 class="dash-title">Your Week<em>,</em> Organized.</h1>
+          <p class="dash-subtitle" id="dashToday"></p>
+        </div>
+
+        <div class="upcoming-strip" id="upcomingStrip">
+          <p class="upcoming-empty">No upcoming events. Add a class or shift below.</p>
+        </div>
+
+        <div class="card-grid">
+          <button class="dash-card card-import" id="openImportBtn">
+            <div class="card-icon">📷</div>
+            <div class="card-content">
+              <h3>Import Schedule</h3>
+              <p>Photo, screenshot, or PDF</p>
+            </div>
+            <div class="card-arrow">→</div>
+          </button>
+
+          <button class="dash-card card-text" id="openTextImportBtn">
+            <div class="card-icon">✏️</div>
+            <div class="card-content">
+              <h3>Add by Text</h3>
+              <p>Type or paste your schedule</p>
+            </div>
+            <div class="card-arrow">→</div>
+          </button>
+
+          <button class="dash-card card-shift" id="openShiftBtn">
+            <div class="card-icon">💼</div>
+            <div class="card-content">
+              <h3>Add Work Shift</h3>
+              <p>Costco or custom shift</p>
+            </div>
+            <div class="card-arrow">→</div>
+          </button>
+
+          <button class="dash-card card-calendar" data-view-trigger="calendar">
+            <div class="card-icon">📅</div>
+            <div class="card-content">
+              <h3>Calendar View</h3>
+              <p>Monthly overview</p>
+            </div>
+            <div class="card-arrow">→</div>
+          </button>
+
+          <button class="dash-card card-gcal" id="openCalSettingsBtn">
+            <div class="card-icon">🔗</div>
+            <div class="card-content">
+              <h3>Calendar Settings</h3>
+              <p id="gcalCardLabel">Manage &amp; share your calendar</p>
+            </div>
+            <div class="card-arrow">→</div>
+          </button>
+
+          <button class="dash-card card-sync" id="quickSyncBtn">
+            <div class="card-icon">⚡</div>
+            <div class="card-content">
+              <h3>Sync Now</h3>
+              <p>Push all events to Google</p>
+            </div>
+            <div class="card-arrow">→</div>
+          </button>
+        </div>
+      </section>
+
+      <!-- ── CALENDAR VIEW ── -->
+      <section class="view" id="view-calendar">
+        <div class="cal-header">
+          <button class="cal-nav" id="calPrev">‹</button>
+          <h2 class="cal-month-label" id="calMonthLabel"></h2>
+          <button class="cal-nav" id="calNext">›</button>
+        </div>
+        <div class="cal-legend">
+          <span class="legend-dot lecture"></span>Lecture
+          <span class="legend-dot lab"></span>Lab
+          <span class="legend-dot exam"></span>Exam
+          <span class="legend-dot work"></span>Work
+          <span class="legend-dot other"></span>Other
+        </div>
+        <div class="cal-grid-wrap">
+          <div class="cal-dow">
+            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
+        <button class="fab" id="addEventFab">+ Event</button>
+      </section>
+
+      <!-- ── NOTES VIEW ── -->
+      <section class="view" id="view-notes">
+        <div class="notes-header">
+          <h2>Quick Notes</h2>
+          <span class="notes-saved" id="notesSaved">Auto-saved</span>
+        </div>
+        <textarea class="notes-area" id="notesArea" placeholder="Professor changed lab date...&#10;Assignment due Friday...&#10;Need to request day off..."></textarea>
+      </section>
+
+    </main>
+  </div><!-- /appShell -->
 
   <!-- ═══════════════════════════════ MODALS ═══════════════════════════════ -->
 
-  <!-- Import Modal -->
+  <!-- Image/PDF Import Modal -->
   <div class="modal-overlay" id="importModal">
     <div class="modal">
       <div class="modal-header">
@@ -142,15 +215,32 @@
             <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden />
           </label>
         </div>
-
         <div class="ocr-section hidden" id="ocrSection">
-          <div class="ocr-progress" id="ocrProgress">
+          <div class="ocr-progress">
             <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
             <span id="progressLabel">Processing…</span>
           </div>
           <label class="field-label">Extracted Text (editable)</label>
           <textarea class="ocr-text" id="ocrText" rows="8" placeholder="OCR text will appear here…"></textarea>
           <button class="btn btn-primary" id="detectEventsBtn">Detect Events →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Text Import Modal -->
+  <div class="modal-overlay" id="textImportModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Add Events by Text</h2>
+        <button class="modal-close" data-close="textImportModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="review-hint">Paste or type your schedule. Each line with a time will be detected as an event.</p>
+        <textarea class="ocr-text" id="textImportArea" rows="10" placeholder="Example:&#10;Monday 9:00 AM - 10:15 AM CS 101 Lecture&#10;Tuesday 2:00 PM - 3:30 PM MATH 201 Lab&#10;Exam: Chemistry April 15 3:00 PM&#10;Costco Shift Friday 8:00 AM - 5:00 PM"></textarea>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-close="textImportModal">Cancel</button>
+          <button class="btn btn-primary" id="detectTextEventsBtn">Detect Events →</button>
         </div>
       </div>
     </div>
@@ -164,12 +254,12 @@
         <button class="modal-close" data-close="reviewModal">✕</button>
       </div>
       <div class="modal-body">
-        <p class="review-hint">Edit or remove events below, then save.</p>
+        <p class="review-hint">Edit or remove events, then save. Events will sync to your Google Calendar.</p>
         <div id="draftEventsList"></div>
         <button class="btn btn-secondary" id="addDraftEventBtn">+ Add Event</button>
         <div class="modal-footer">
           <button class="btn btn-outline" data-close="reviewModal">Cancel</button>
-          <button class="btn btn-primary" id="saveDraftEventsBtn">Save Events</button>
+          <button class="btn btn-primary" id="saveDraftEventsBtn">Save &amp; Sync to Google →</button>
         </div>
       </div>
     </div>
@@ -203,7 +293,7 @@
         </div>
         <div class="modal-footer">
           <button class="btn btn-outline" data-close="shiftModal">Cancel</button>
-          <button class="btn btn-primary" id="saveShiftBtn">Save Shift</button>
+          <button class="btn btn-primary" id="saveShiftBtn">Save &amp; Sync →</button>
         </div>
       </div>
     </div>
@@ -249,64 +339,77 @@
           <label class="field-label">Notes</label>
           <textarea class="field-input" id="evNotes" rows="3"></textarea>
         </div>
+        <div class="gcal-sync-status" id="evGcalStatus"></div>
         <div class="modal-footer">
           <button class="btn btn-danger" id="deleteEventBtn">Delete</button>
           <button class="btn btn-outline" data-close="eventModal">Cancel</button>
-          <button class="btn btn-primary" id="saveEventBtn">Save</button>
+          <button class="btn btn-primary" id="saveEventBtn">Save &amp; Sync →</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Google Cal Config Modal -->
-  <div class="modal-overlay" id="gcalModal">
+  <!-- Calendar Settings Modal -->
+  <div class="modal-overlay" id="calSettingsModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>Google Calendar Setup</h2>
-        <button class="modal-close" data-close="gcalModal">✕</button>
+        <h2>Calendar Settings</h2>
+        <button class="modal-close" data-close="calSettingsModal">✕</button>
       </div>
       <div class="modal-body">
-        <div id="gcalSetupView">
-          <p class="gcal-intro">Connect your Google Calendar to sync events. You'll need a Google Cloud project with the Calendar API enabled.</p>
-          <div class="form-group">
-            <label class="field-label">Client ID</label>
-            <input class="field-input" id="gcalClientId" type="text" placeholder="your-client-id.apps.googleusercontent.com" />
-          </div>
-          <div class="form-group">
-            <label class="field-label">API Key</label>
-            <input class="field-input" id="gcalApiKey" type="text" placeholder="AIza..." />
-          </div>
-          <details class="gcal-help">
-            <summary>How to set up</summary>
-            <ol>
-              <li>Go to <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a></li>
-              <li>Create a project → Enable Google Calendar API</li>
-              <li>Create OAuth 2.0 credentials (Web App)</li>
-              <li>Add your GitHub Pages URL to Authorized Origins</li>
-              <li>Copy Client ID and API Key here</li>
-            </ol>
-          </details>
-          <div class="modal-footer">
-            <button class="btn btn-outline" data-close="gcalModal">Cancel</button>
-            <button class="btn btn-primary" id="gcalConnectConfirmBtn">Connect</button>
+
+        <!-- Signed-in user info -->
+        <div class="settings-user-row">
+          <img class="settings-avatar" id="settingsAvatar" src="" alt="" />
+          <div>
+            <div class="settings-user-name" id="settingsUserName"></div>
+            <div class="settings-user-email" id="settingsUserEmail"></div>
           </div>
         </div>
-        <div id="gcalConnectedView" class="hidden">
-          <div class="gcal-connected-badge">✅ Connected to Google Calendar</div>
-          <p class="gcal-account" id="gcalAccount"></p>
-          <div class="form-group">
-            <label class="field-label">Select events to sync</label>
-            <div class="sync-options">
-              <label><input type="checkbox" id="syncLecture" checked /> Lectures</label>
-              <label><input type="checkbox" id="syncLab" checked /> Labs</label>
-              <label><input type="checkbox" id="syncExam" checked /> Exams</label>
-              <label><input type="checkbox" id="syncWork" checked /> Work Shifts</label>
-            </div>
+
+        <!-- Calendar ID -->
+        <div class="form-group">
+          <label class="field-label">Google Calendar ID</label>
+          <input class="field-input" id="calendarIdInput" type="text" placeholder="primary  (or paste calendar ID)" />
+          <p class="field-hint">Leave as <code>primary</code> to use your main calendar, or paste a dedicated calendar ID to group events separately.</p>
+        </div>
+
+        <!-- Calendar name shown in Google -->
+        <div class="form-group">
+          <label class="field-label">Calendar Label (shown in Google)</label>
+          <input class="field-input" id="calendarLabelInput" type="text" placeholder="Class &amp; Work" />
+          <p class="field-hint">New events will be created under this calendar. Existing Google Calendar can be shared with friends.</p>
+        </div>
+
+        <!-- How to share -->
+        <details class="gcal-help">
+          <summary>How to share your calendar with friends</summary>
+          <ol>
+            <li>Go to <a href="https://calendar.google.com" target="_blank">calendar.google.com</a></li>
+            <li>Find your <strong>Class &amp; Work</strong> calendar in the left sidebar</li>
+            <li>Click the three dots → <strong>Settings and sharing</strong></li>
+            <li>Under <strong>"Share with specific people"</strong> → Add their email</li>
+            <li>Choose permission: <em>View only</em> or <em>Make changes</em></li>
+            <li>They'll get an email invite — once accepted, they see your events</li>
+          </ol>
+        </details>
+
+        <!-- Sync options -->
+        <div class="form-group">
+          <label class="field-label">Sync these event types</label>
+          <div class="sync-options">
+            <label><input type="checkbox" id="syncLecture" checked /> Lectures</label>
+            <label><input type="checkbox" id="syncLab" checked /> Labs</label>
+            <label><input type="checkbox" id="syncExam" checked /> Exams</label>
+            <label><input type="checkbox" id="syncWork" checked /> Work Shifts</label>
+            <label><input type="checkbox" id="syncOther" checked /> Other</label>
           </div>
-          <div class="modal-footer">
-            <button class="btn btn-danger" id="gcalDisconnectBtn">Disconnect</button>
-            <button class="btn btn-primary" id="gcalSyncNowBtn">Sync Now</button>
-          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-danger" id="settingsSignOutBtn">Sign Out</button>
+          <button class="btn btn-outline" data-close="calSettingsModal">Close</button>
+          <button class="btn btn-primary" id="saveCalSettingsBtn">Save &amp; Sync All →</button>
         </div>
       </div>
     </div>
