@@ -31,7 +31,10 @@
   });
 
   function setupLoginScreen() {
-    document.getElementById('loginGoogleBtn').addEventListener('click', signInWithGoogle);
+    const btn = document.getElementById('loginGoogleBtn');
+    if (btn) {
+      btn.addEventListener('click', signInWithGoogle);
+    }
   }
 
   async function signInWithGoogle() {
