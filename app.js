@@ -36,37 +36,85 @@
       btn.addEventListener('click', signInWithGoogle);
     }
   }
-
   async function signInWithGoogle() {
+    console.log('STEP 1');
+
     showLoadingStep();
+
     try {
-      await GCalendar.init("899491417864-hfdfqurf3rvcoic9j3s2kj9sqa1ff111.apps.googleusercontent.com");
+      console.log('STEP 2');
+
+      await GCalendar.init(CLIENT_ID);
+
+      console.log('STEP 3');
+
       GCalendar.requestSignIn();
-      
-      // Wait for OAuth callback with timeout
+
+      console.log('STEP 4');
+
       await new Promise((resolve, reject) => {
-        const maxWait = 120000; // 2 minutes
+
         const checkInterval = setInterval(() => {
+
           const status = GCalendar.getStatus();
+
+          console.log('STATUS', status);
+
           if (status.isConnected) {
+            console.log('STEP 5');
+
             clearInterval(checkInterval);
             resolve();
           }
+
         }, 500);
-        
-        setTimeout(() => {
-          clearInterval(checkInterval);
-          reject(new Error('Sign-in timeout. Check your  ID.'));
-        }, maxWait);
+
       });
-      
+
+      console.log('STEP 6');
+
       loginSuccess();
-    } catch(e) {
-      console.error('Sign-in error:', e);
-      showToast('Sign-in failed: ' + e.message);
-      showSignInStep();
+
+      console.log('STEP 7');
+
+    } catch (e) {
+
+      console.error(e);
+
     }
   }
+
+//  async function signInWithGoogle() {
+//    showLoadingStep();
+//    try {
+//      await GCalendar.init("899491417864-hfdfqurf3rvcoic9j3s2kj9sqa1ff111.apps.googleusercontent.com");
+//      GCalendar.requestSignIn();
+//
+//      // Wait for OAuth callback with timeout
+//      await new Promise((resolve, reject) => {
+//        const maxWait = 120000; // 2 minutes
+//        const checkInterval = setInterval(() => {
+//          const status = GCalendar.getStatus();
+//          if (status.isConnected) {
+//            clearInterval(checkInterval);
+//            resolve();
+//          }
+//        }, 500);
+//
+//        setTimeout(() => {
+//          clearInterval(checkInterval);
+//          reject(new Error('Sign-in timeout. Check your  ID.'));
+//        }, maxWait);
+//      });
+//
+//      loginSuccess();
+//    } catch(e) {
+//      console.error('Sign-in error:', e);
+//      showToast('Sign-in failed: ' + e.message);
+//      showSignInStep();
+//    }
+//  }
+
   function loginSuccess() {
     console.log('LOGIN SUCCESS START');
     const status = GCalendar.getStatus();
@@ -86,17 +134,17 @@
     renderUpcoming();
     console.log('LOGIN SUCCESS END');
   }
-
-  function loginSuccess() {
-    const status = GCalendar.getStatus();
-    Storage.setUser(status.userEmail);
-    Storage.saveSession({ email: status.userEmail });
-    isLoggedIn = true;
-    showAppShell();
-    setupAppUI();
-    updateUserInfo();
-    renderUpcoming();
-  }
+//
+//  function loginSuccess() {
+//    const status = GCalendar.getStatus();
+//    Storage.setUser(status.userEmail);
+//    Storage.saveSession({ email: status.userEmail });
+//    isLoggedIn = true;
+//    showAppShell();
+//    setupAppUI();
+//    updateUserInfo();
+//    renderUpcoming();
+//  }
 
   function showSignInStep() {
     document.getElementById('loginSignInStep').classList.remove('hidden');
@@ -477,7 +525,7 @@
     const label = document.getElementById('calendarLabelInput').value.trim() || 'Class & Work';
     GCalendar.setCalendarId(calId);
     Storage.savePrefs({ calendarId: calId, calendarLabel: label });
-    
+
     const types = [];
     if (document.getElementById('syncLecture').checked) types.push('lecture');
     if (document.getElementById('syncLab').checked)     types.push('lab');
