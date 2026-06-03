@@ -16,7 +16,7 @@
       // Try auto-reconnect
       showLoadingStep();
       try {
-        await GCalendar.init(CLIENT_ID);
+        await GCalendar.init("899491417864-hfdfqurf3rvcoic9j3s2kj9sqa1ff111.apps.googleusercontent.com");
         const reconnected = await GCalendar.autoReconnect();
         if (reconnected) {
           loginSuccess();
@@ -56,7 +56,7 @@
         
         setTimeout(() => {
           clearInterval(checkInterval);
-          reject(new Error('Sign-in timeout. Check your Client ID.'));
+          reject(new Error('Sign-in timeout. Check your  ID.'));
         }, maxWait);
       });
       
