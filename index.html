@@ -24,36 +24,12 @@
         <p>Your personal schedule, synced to Google Calendar.</p>
       </div>
 
-      <div id="loginSetupStep" class="login-step">
-        <p class="login-hint">First-time setup: enter your Google Cloud credentials. This is a one-time step.</p>
-        <div class="form-group">
-          <label class="field-label">Client ID</label>
-          <input class="field-input" id="loginClientId" type="text" placeholder="xxxx.apps.googleusercontent.com" />
-        </div>
-        <div class="form-group">
-          <label class="field-label">API Key</label>
-          <input class="field-input" id="loginApiKey" type="text" placeholder="AIza..." />
-        </div>
-        <details class="gcal-help">
-          <summary>How to get these</summary>
-          <ol>
-            <li>Go to <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a></li>
-            <li>Create a project → Enable <strong>Google Calendar API</strong></li>
-            <li>Credentials → <strong>+ Create → API Key</strong> → copy it</li>
-            <li>Credentials → <strong>+ Create → OAuth 2.0 Client ID</strong> (Web App)</li>
-            <li>Add your site URL to <strong>Authorized JavaScript Origins</strong></li>
-            <li>OAuth consent screen → Audience → <strong>Back to testing</strong> → add your email as test user</li>
-          </ol>
-        </details>
-        <button class="btn btn-primary btn-full" id="loginSaveCredsBtn">Save &amp; Continue →</button>
-      </div>
-
-      <div id="loginSignInStep" class="login-step hidden">
+      <div id="loginSignInStep" class="login-step">
+        <p class="login-hint">Sign in with your Google account to manage your calendar.</p>
         <div class="login-google-btn" id="loginGoogleBtn">
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" width="20" />
           Sign in with Google
         </div>
-        <button class="btn btn-text" id="loginChangeCreds">Use different credentials</button>
       </div>
 
       <div id="loginLoadingStep" class="login-step hidden">

@@ -1,72 +1,63 @@
-/* app.js — Main application with OAuth2 login & auto-reconnect */
+/* app.js — Simple Google Sign-In with hardcoded Client ID */
 
 (function() {
   'use strict';
 
+  const CLIENT_ID = '899491417864-hfdfqurf3rvcoic9j3s2kj9sqa1ff111.apps.googleusercontent.com';
+
   let currentEventId  = null;
   let draftEvents     = [];
   let editShiftId     = null;
-  let clientId        = '';
   let isLoggedIn      = false;
 
   document.addEventListener('DOMContentLoaded', async () => {
-    setupLoginScreen();
     const session = Storage.getSession();
-    if (session && session.clientId) {
+    if (session && session.email) {
+      // Try auto-reconnect
       showLoadingStep();
       try {
-        await GCalendar.init(session.clientId);
+        await GCalendar.init(CLIENT_ID);
         const reconnected = await GCalendar.autoReconnect();
         if (reconnected) {
-          loginSuccess(session.clientId);
+          loginSuccess();
           return;
         }
       } catch(e) {
         console.warn('Auto-reconnect failed:', e);
       }
-      showSignInStep();
     }
+    showSignInStep();
+    setupLoginScreen();
   });
 
   function setupLoginScreen() {
-    document.getElementById('loginSaveCredsBtn').addEventListener('click', saveCredentials);
     document.getElementById('loginGoogleBtn').addEventListener('click', signInWithGoogle);
-    document.getElementById('loginChangeCreds').addEventListener('click', () => showSetupStep());
-  }
-
-  function saveCredentials() {
-    const cid = document.getElementById('loginClientId').value.trim();
-    const apiKey = document.getElementById('loginApiKey').value.trim();
-    if (!cid) { showToast('Enter Client ID'); return; }
-    if (!apiKey) { showToast('Enter API Key'); return; }
-    clientId = cid;
-    Storage.saveSession({ clientId: cid, apiKey });
-    showSignInStep();
   }
 
   async function signInWithGoogle() {
     showLoadingStep();
     try {
-      await GCalendar.init(clientId);
+      await GCalendar.init(CLIENT_ID);
       GCalendar.requestSignIn();
+      // Wait for OAuth callback
       setTimeout(() => {
         const status = GCalendar.getStatus();
         if (status.isConnected) {
-          loginSuccess(clientId);
+          loginSuccess();
         } else {
           showLoadingStep();
         }
       }, 2000);
     } catch(e) {
-      showToast('Connection failed: ' + e.message);
+      showToast('Sign-in failed: ' + e.message);
       showSignInStep();
     }
   }
 
-  function loginSuccess(cid) {
+  function loginSuccess() {
     const status = GCalendar.getStatus();
     Storage.setUser(status.userEmail);
-    Storage.saveSession({ clientId: cid, email: status.userEmail });
+    Storage.saveSession({ email: status.userEmail });
     isLoggedIn = true;
     showAppShell();
     setupAppUI();
@@ -74,20 +65,12 @@
     renderUpcoming();
   }
 
-  function showSetupStep() {
-    document.getElementById('loginSetupStep').classList.remove('hidden');
-    document.getElementById('loginSignInStep').classList.add('hidden');
-    document.getElementById('loginLoadingStep').classList.add('hidden');
-  }
-
   function showSignInStep() {
-    document.getElementById('loginSetupStep').classList.add('hidden');
     document.getElementById('loginSignInStep').classList.remove('hidden');
     document.getElementById('loginLoadingStep').classList.add('hidden');
   }
 
   function showLoadingStep() {
-    document.getElementById('loginSetupStep').classList.add('hidden');
     document.getElementById('loginSignInStep').classList.add('hidden');
     document.getElementById('loginLoadingStep').classList.remove('hidden');
   }
