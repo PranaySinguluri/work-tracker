@@ -321,14 +321,14 @@ const GCalendar = (() => {
   }
 
   async function syncEvents(
-    events,
-    types
+    events=[],
+    types=[]
   ) {
 
-    const toSync =
-      events.filter(
-        e => types.includes(e.type) && e.date
-      );
+   const toSync =
+  (events || []).filter(
+    e => (types || []).includes(e.type) && e.date
+  );
 
     const results = {
       success: 0,
