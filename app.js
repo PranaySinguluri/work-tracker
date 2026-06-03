@@ -35,7 +35,7 @@
       btn.addEventListener('click', signInWithGoogle);
     }
   }
-  async function signInWithGoogle() {
+  function signInWithGoogle() {
     console.log('STEP 1');
     showLoadingStep();
     try {
