@@ -122,29 +122,8 @@ const GCalendar = (() => {
                 (resp.expires_in * 1000);
             }
 
-            try {
-
-              const profile =
-                await window.gapi.client.request({
-                  path:
-                    'https://www.googleapis.com/oauth2/v1/userinfo'
-                });
-
-              userEmail =
-                profile?.result?.email || '';
-
-              creds.email =
-                userEmail;
-
-            } catch (profileError) {
-
-              console.warn(
-                'Profile lookup failed',
-                profileError
-              );
-
-            }
-
+            userEmail = 'Connected';
+            creds.email = userEmail;
             Storage.saveGCalCreds(
               creds
             );
