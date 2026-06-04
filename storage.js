@@ -1,3 +1,4 @@
+
 /* storage.js — Local storage helpers, keyed per Google user */
 
 const Storage = (() => {

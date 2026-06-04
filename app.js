@@ -427,7 +427,7 @@
       }
     } else {
       title.textContent = 'Add Work Shift';
-      document.getElementById('shiftTitle').value = 'Costco Shift';
+      document.getElementById('shiftTitle').value = 'Work';
       document.getElementById('shiftDate').value  = todayStr();
       document.getElementById('shiftStart').value = '09:00';
       document.getElementById('shiftEnd').value   = '17:00';

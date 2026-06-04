@@ -7,7 +7,7 @@ A mobile-friendly personal scheduling app for managing college classes, labs, ex
 ## Features
 
 - **📷 Import Class Schedule** — Upload a photo, screenshot, or PDF. OCR extracts text (via Tesseract.js), you review and edit, then save as events.
-- **💼 Work Shifts** — Add/edit/delete shifts with a dedicated form. Defaults to "Costco Shift."
+- **💼 Work Shifts** — Add/edit/delete shifts with a dedicated form.
 - **📅 Monthly Calendar** — Color-coded view (blue=Lecture, green=Lab, orange=Exam, purple=Work).
 - **📝 Notes** — Auto-saving personal notes area.
 - **🔗 Google Calendar Sync** — Sync selected event types to your primary Google Calendar.
