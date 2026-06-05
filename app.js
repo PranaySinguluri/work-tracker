@@ -518,10 +518,11 @@
     CalendarUI.render();
   }
 
-  function setupCalendarSettings() {
-    document.getElementById('saveCalSettingsBtn').addEventListener('click', saveCalendarSettings);
-    document.getElementById('settingsSignOutBtn').addEventListener('click', signOut);
-  }
+ function setupCalendarSettings() {
+   document.getElementById('openCalSettingsBtn').addEventListener('click', () => openModal('calSettingsModal'));
+   document.getElementById('saveCalSettingsBtn').addEventListener('click', saveCalendarSettings);
+   document.getElementById('settingsSignOutBtn').addEventListener('click', signOut);
+ }
 
   async function saveCalendarSettings() {
     const calId = document.getElementById('calendarIdInput').value.trim() || 'primary';
