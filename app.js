@@ -207,8 +207,26 @@
   }
 
   function setupDashboard() {
-    document.getElementById('openImportBtn').addEventListener('click', () => openModal('importModal'));
-    document.getElementById('openShiftBtn').addEventListener('click', () => openShiftModal());
+    const importBtn = document.getElementById('openImportBtn');
+    const textImportBtn = document.getElementById('openTextImportBtn');
+    const shiftBtn = document.getElementById('openShiftBtn');
+    const syncBtn = document.getElementById('quickSyncBtn');
+    const settingsBtn = document.getElementById('openCalSettingsBtn');
+
+    if (importBtn) importBtn.addEventListener('click', () => openModal('importModal'));
+    if (textImportBtn) textImportBtn.addEventListener('click', () => {
+      openModal('importModal');
+      setTimeout(() => {
+        const textArea = document.getElementById('ocrText');
+        if (textArea) textArea.focus();
+      }, 100);
+    });
+    if (shiftBtn) shiftBtn.addEventListener('click', () => openShiftModal());
+    if (syncBtn) syncBtn.addEventListener('click', () => {
+      showToast('Syncing…');
+      saveCalendarSettings();
+    });
+    if (settingsBtn) settingsBtn.addEventListener('click', () => openModal('calSettingsModal'));
   }
 
   function setDashToday() {
@@ -518,11 +536,10 @@
     CalendarUI.render();
   }
 
- function setupCalendarSettings() {
-   document.getElementById('openCalSettingsBtn').addEventListener('click', () => openModal('calSettingsModal'));
-   document.getElementById('saveCalSettingsBtn').addEventListener('click', saveCalendarSettings);
-   document.getElementById('settingsSignOutBtn').addEventListener('click', signOut);
- }
+  function setupCalendarSettings() {
+    document.getElementById('saveCalSettingsBtn').addEventListener('click', saveCalendarSettings);
+    document.getElementById('settingsSignOutBtn').addEventListener('click', signOut);
+  }
 
   async function saveCalendarSettings() {
     const calId = document.getElementById('calendarIdInput').value.trim() || 'primary';
