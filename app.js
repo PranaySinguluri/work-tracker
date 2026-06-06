@@ -1,21 +1,22 @@
-/* app.js — Simple Google Sign-In with hardcoded Client ID */
+/* app.js — Class & Work Calendar with immediate sync */
 
 (function() {
   'use strict';
 
   const CLIENT_ID = '899491417864-hfdfqurf3rvcoic9j3s2kj9sqa1ff111.apps.googleusercontent.com';
 
-  let currentEventId  = null;
-  let draftEvents     = [];
-  let editShiftId     = null;
-  let isLoggedIn      = false;
+  let currentEventId = null;
+  let draftEvents = [];
+  let editShiftId = null;
+  let lastSyncEmail = '';
+
   document.addEventListener('DOMContentLoaded', async () => {
     const session = Storage.getSession();
     if (session && session.email) {
-      // Try auto-reconnect
+      lastSyncEmail = session.email;
       showLoadingStep();
       try {
-        await GCalendar.init("899491417864-hfdfqurf3rvcoic9j3s2kj9sqa1ff111.apps.googleusercontent.com");
+        await GCalendar.init(CLIENT_ID);
         const reconnected = await GCalendar.autoReconnect();
         if (reconnected) {
           loginSuccess();
@@ -35,119 +36,49 @@
       btn.addEventListener('click', signInWithGoogle);
     }
   }
+
   async function signInWithGoogle() {
-    console.log('STEP 1');
     showLoadingStep();
-
     try {
-      console.log('BEFORE INIT');
-
-     await GCalendar.init(CLIENT_ID);
-
-      console.log('AFTER INIT');
-
-      await GCalendar.requestSignIn();
-
-      console.log('STEP 4');
-
+      await GCalendar.init(CLIENT_ID);
+      GCalendar.requestSignIn();
+      
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          clearInterval(checkInterval);
           reject(new Error("Login timeout"));
         }, 15000);
 
         const checkInterval = setInterval(() => {
           const status = GCalendar.getStatus();
-          console.log('STATUS', status);
-
           if (status?.isConnected) {
-            console.log('STEP 5');
             clearInterval(checkInterval);
             clearTimeout(timeout);
             resolve();
           }
-
-          if (status?.error) {
-            clearInterval(checkInterval);
-            clearTimeout(timeout);
-            reject(status.error);
-          }
         }, 500);
       });
 
-      console.log('STEP 6');
       loginSuccess();
-
-      console.log('STEP 7');
-
     } catch (e) {
-      console.error('INIT ERROR:', e);
-      showError("Google Sign-In failed");
+      console.error('Sign-in error:', e);
+      showToast('Sign-in failed: ' + e.message);
+      showSignInStep();
     }
   }
-  ``
-
-//  async function signInWithGoogle() {
-//    showLoadingStep();
-//    try {
-//      await GCalendar.init("899491417864-hfdfqurf3rvcoic9j3s2kj9sqa1ff111.apps.googleusercontent.com");
-//      GCalendar.requestSignIn();
-//
-//      // Wait for OAuth callback with timeout
-//      await new Promise((resolve, reject) => {
-//        const maxWait = 120000; // 2 minutes
-//        const checkInterval = setInterval(() => {
-//          const status = GCalendar.getStatus();
-//          if (status.isConnected) {
-//            clearInterval(checkInterval);
-//            resolve();
-//          }
-//        }, 500);
-//
-//        setTimeout(() => {
-//          clearInterval(checkInterval);
-//          reject(new Error('Sign-in timeout. Check your  ID.'));
-//        }, maxWait);
-//      });
-//
-//      loginSuccess();
-//    } catch(e) {
-//      console.error('Sign-in error:', e);
-//      showToast('Sign-in failed: ' + e.message);
-//      showSignInStep();
-//    }
-//  }
 
   function loginSuccess() {
-    console.log('LOGIN SUCCESS START');
     const status = GCalendar.getStatus();
-    console.log('STATUS:', status);
-    Storage.setUser(status.userEmail);
-    Storage.saveSession({
-      email: status.userEmail
-    });
-    console.log('SESSION SAVED');
-    isLoggedIn = true;
+    const email = status.userEmail;
+    lastSyncEmail = email;
+    
+    Storage.setUser(email);
+    Storage.saveSession({ email });
+    
     showAppShell();
-    console.log('APP SHELL SHOWN');
     setupAppUI();
-    console.log('UI SETUP COMPLETE');
     updateUserInfo();
-    console.log('USER INFO UPDATED');
     renderUpcoming();
-    console.log('LOGIN SUCCESS END');
   }
-//
-//  function loginSuccess() {
-//    const status = GCalendar.getStatus();
-//    Storage.setUser(status.userEmail);
-//    Storage.saveSession({ email: status.userEmail });
-//    isLoggedIn = true;
-//    showAppShell();
-//    setupAppUI();
-//    updateUserInfo();
-//    renderUpcoming();
-//  }
 
   function showSignInStep() {
     document.getElementById('loginSignInStep').classList.remove('hidden');
@@ -182,11 +113,8 @@
     const status = GCalendar.getStatus();
     document.getElementById('userName').textContent = status.userEmail.split('@')[0];
     const prefs = Storage.getPrefs();
-    const calId = prefs.calendarId || 'primary';
-    document.getElementById('calendarIdInput').value = calId;
+    document.getElementById('calendarIdInput').value = prefs.calendarId || 'primary';
     document.getElementById('calendarLabelInput').value = prefs.calendarLabel || 'Class & Work';
-    document.getElementById('settingsUserName').textContent = status.userEmail.split('@')[0];
-    document.getElementById('settingsUserEmail').textContent = status.userEmail;
   }
 
   function setupNav() {
@@ -207,26 +135,56 @@
   }
 
   function setupDashboard() {
-    const importBtn = document.getElementById('openImportBtn');
-    const textImportBtn = document.getElementById('openTextImportBtn');
-    const shiftBtn = document.getElementById('openShiftBtn');
-    const syncBtn = document.getElementById('quickSyncBtn');
-    const settingsBtn = document.getElementById('openCalSettingsBtn');
+    document.getElementById('openImportBtn')?.addEventListener('click', () => openModal('importModal'));
+    document.getElementById('openShiftBtn')?.addEventListener('click', () => openShiftModal());
+    document.getElementById('openCalSettingsBtn')?.addEventListener('click', () => openModal('calSettingsModal'));
+    document.getElementById('loadGcalBtn')?.addEventListener('click', loadFromGoogleCalendar);
+  }
 
-    if (importBtn) importBtn.addEventListener('click', () => openModal('importModal'));
-    if (textImportBtn) textImportBtn.addEventListener('click', () => {
-      openModal('importModal');
-      setTimeout(() => {
-        const textArea = document.getElementById('ocrText');
-        if (textArea) textArea.focus();
-      }, 100);
-    });
-    if (shiftBtn) shiftBtn.addEventListener('click', () => openShiftModal());
-    if (syncBtn) syncBtn.addEventListener('click', () => {
-      showToast('Syncing…');
-      saveCalendarSettings();
-    });
-    if (settingsBtn) settingsBtn.addEventListener('click', () => openModal('calSettingsModal'));
+  async function loadFromGoogleCalendar() {
+    showToast('Loading events from Google Calendar…');
+    try {
+      const gcalEvents = await GCalendar.getAllEvents();
+      console.log('Loaded events from Google Calendar:', gcalEvents.length);
+      
+      // Merge with local storage
+      const localEvents = Storage.getEvents();
+      const mergedEvents = [...localEvents];
+      
+      for (const gcalEv of gcalEvents) {
+        const exists = localEvents.find(le => 
+          le.gcalEventId === gcalEv.id
+        );
+        if (!exists) {
+          const localEvent = {
+            id: genId(),
+            title: gcalEv.summary,
+            type: gcalEventToType(gcalEv),
+            date: gcalEv.start?.date || gcalEv.start?.dateTime?.split('T')[0],
+            startTime: gcalEv.start?.dateTime ? gcalEv.start.dateTime.split('T')[1].slice(0, 5) : '',
+            endTime: gcalEv.end?.dateTime ? gcalEv.end.dateTime.split('T')[1].slice(0, 5) : '',
+            notes: gcalEv.description || '',
+            gcalEventId: gcalEv.id
+          };
+          mergedEvents.push(localEvent);
+        }
+      }
+      
+      Storage.saveEvents(mergedEvents);
+      renderUpcoming();
+      CalendarUI.render();
+      showToast(`✓ Loaded ${gcalEvents.length} event(s) from Google Calendar`);
+    } catch(e) {
+      console.error('Load failed:', e);
+      showToast('Failed to load: ' + e.message);
+    }
+  }
+
+  function gcalEventToType(gcalEv) {
+    const title = (gcalEv.summary || '').toLowerCase();
+    if (title.includes('exam') || title.includes('test') || title.includes('lab')) return 'Class';
+    if (title.includes('shift') || title.includes('work') || title.includes('job')) return 'Work';
+    return 'Event';
   }
 
   function setDashToday() {
@@ -255,7 +213,7 @@
       const dateLabel = formatDateLabel(ev.date);
       const timeLabel = ev.startTime ? formatTime12(ev.startTime) : '';
       return `
-        <div class="upcoming-chip ${ev.type || 'other'}" data-id="${ev.id}">
+        <div class="upcoming-chip ${ev.type || 'Event'}" data-id="${ev.id}">
           <div class="chip-date">${dateLabel}</div>
           <div class="chip-title">${escHtml(ev.title)}</div>
           ${timeLabel ? `<div class="chip-time">${timeLabel}</div>` : ''}
@@ -292,23 +250,24 @@
     });
   }
 
+  // ── IMPORT SCHEDULE ────────────────────────────────────
   function setupImportModal() {
-    const fileInput   = document.getElementById('fileInput');
+    const fileInput = document.getElementById('fileInput');
     const cameraInput = document.getElementById('cameraInput');
-    const uploadZone  = document.getElementById('uploadZone');
+    const uploadZone = document.getElementById('uploadZone');
 
-    fileInput.addEventListener('change',   e => handleFile(e.target.files[0]));
-    cameraInput.addEventListener('change', e => handleFile(e.target.files[0]));
+    fileInput?.addEventListener('change', e => handleFile(e.target.files[0]));
+    cameraInput?.addEventListener('change', e => handleFile(e.target.files[0]));
 
-    uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
-    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
-    uploadZone.addEventListener('drop', e => {
+    uploadZone?.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+    uploadZone?.addEventListener('dragleave', () => uploadZone?.classList.remove('drag-over'));
+    uploadZone?.addEventListener('drop', e => {
       e.preventDefault();
       uploadZone.classList.remove('drag-over');
       if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
     });
 
-    document.getElementById('detectEventsBtn').addEventListener('click', () => {
+    document.getElementById('detectEventsBtn')?.addEventListener('click', () => {
       const text = document.getElementById('ocrText').value;
       draftEvents = OCR.detectEvents(text).map(e => ({ ...e, id: genId() }));
       closeModal('importModal');
@@ -334,8 +293,7 @@
       setProgress(100, 'Done!');
       document.getElementById('ocrText').value = text;
     } catch(e) {
-      document.getElementById('ocrText').value = 'Could not extract text. Please type or paste your schedule below.';
-      setProgress(0, 'Error');
+      document.getElementById('ocrText').value = 'Could not extract text. Try another file.';
     }
   }
 
@@ -353,7 +311,7 @@
   function renderDraftEvents() {
     const list = document.getElementById('draftEventsList');
     if (!draftEvents.length) {
-      list.innerHTML = '<p style="color:var(--text-muted);font-size:14px;">No events detected. Add them manually below.</p>';
+      list.innerHTML = '<p style="color:var(--text-muted);font-size:14px;">No events detected.</p>';
       return;
     }
     list.innerHTML = draftEvents.map((ev, idx) => `
@@ -365,10 +323,9 @@
         <div class="draft-row">
           <span class="draft-label">Type</span>
           <select class="draft-type">
-            <option value="lecture"  ${ev.type==='lecture'?'selected':''}>Lecture</option>
-            <option value="lab"      ${ev.type==='lab'?'selected':''}>Lab</option>
-            <option value="exam"     ${ev.type==='exam'?'selected':''}>Exam</option>
-            <option value="other"    ${ev.type==='other'?'selected':''}>Other</option>
+            <option value="Class"  ${ev.type==='Class'?'selected':''}>Class</option>
+            <option value="Work"   ${ev.type==='Work'?'selected':''}>Work</option>
+            <option value="Event"  ${ev.type==='Event'?'selected':''}>Event</option>
           </select>
         </div>
         <div class="draft-row">
@@ -411,24 +368,34 @@
   document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('addDraftEventBtn')) {
       document.getElementById('addDraftEventBtn').addEventListener('click', () => {
-        draftEvents.push({ id: genId(), title: 'New Event', type: 'lecture', date: todayStr(), startTime: '', endTime: '', notes: '' });
+        draftEvents.push({ id: genId(), title: 'New Event', type: 'Class', date: todayStr(), startTime: '', endTime: '', notes: '' });
         renderDraftEvents();
       });
-      document.getElementById('saveDraftEventsBtn').addEventListener('click', () => {
+      document.getElementById('saveDraftEventsBtn').addEventListener('click', async () => {
         collectDraftEdits();
         const valid = draftEvents.filter(e => e.title && e.date);
-        valid.forEach(ev => Storage.addEvent({ ...ev }));
+        
+        for (const ev of valid) {
+          const dup = checkDuplicate(ev);
+          if (dup) {
+            showToast(`⚠️ Event exists: ${ev.title} on ${ev.date}`);
+            continue;
+          }
+          await addAndSyncEvent(ev);
+        }
+        
         closeModal('reviewModal');
         renderUpcoming();
         CalendarUI.render();
-        showToast(`${valid.length} event(s) saved ✓`);
+        showToast(`${valid.length} event(s) saved & synced ✓`);
         draftEvents = [];
       });
     }
   });
 
+  // ── WORK SHIFT MODAL ───────────────────────────────────
   function setupShiftModal() {
-    document.getElementById('saveShiftBtn').addEventListener('click', saveShift);
+    document.getElementById('saveShiftBtn')?.addEventListener('click', saveShift);
   }
 
   function openShiftModal(id = null) {
@@ -445,7 +412,7 @@
       }
     } else {
       title.textContent = 'Add Work Shift';
-      document.getElementById('shiftTitle').value = 'Work';
+      document.getElementById('shiftTitle').value = 'Work Shift';
       document.getElementById('shiftDate').value  = todayStr();
       document.getElementById('shiftStart').value = '09:00';
       document.getElementById('shiftEnd').value   = '17:00';
@@ -453,30 +420,43 @@
     openModal('shiftModal');
   }
 
-  function saveShift() {
+  async function saveShift() {
     const title = document.getElementById('shiftTitle').value.trim() || 'Work Shift';
     const date  = document.getElementById('shiftDate').value;
     const start = document.getElementById('shiftStart').value;
     const end   = document.getElementById('shiftEnd').value;
     if (!date) { showToast('Please pick a date'); return; }
-    const ev = { title, date, startTime: start, endTime: end, type: 'work', notes: '' };
+    
+    const ev = { title, date, startTime: start, endTime: end, type: 'Work', notes: '' };
+    
     if (editShiftId) {
       Storage.updateEvent(editShiftId, ev);
-      showToast('Shift updated ✓');
+      await syncEventToGoogle(editShiftId, ev);
+      showToast('Shift updated & synced ✓');
     } else {
-      Storage.addEvent(ev);
-      showToast('Shift added ✓');
+      const dup = checkDuplicate(ev);
+      if (dup) {
+        showToast('⚠️ Event already exists at this time');
+        return;
+      }
+      await addAndSyncEvent(ev);
+      showToast('Shift added & synced ✓');
     }
     closeModal('shiftModal');
     renderUpcoming();
     CalendarUI.render();
   }
 
+  // ── EVENT MODAL ────────────────────────────────────────
   function setupEventModal() {
-    document.getElementById('saveEventBtn').addEventListener('click', saveEvent);
-    document.getElementById('deleteEventBtn').addEventListener('click', () => {
+    document.getElementById('saveEventBtn')?.addEventListener('click', saveEvent);
+    document.getElementById('deleteEventBtn')?.addEventListener('click', async () => {
       if (currentEventId && confirm('Delete this event?')) {
+        const ev = Storage.getEventById(currentEventId);
         Storage.deleteEvent(currentEventId);
+        if (ev?.gcalEventId) {
+          await GCalendar.deleteEvent(ev.gcalEventId);
+        }
         closeModal('eventModal');
         renderUpcoming();
         CalendarUI.render();
@@ -491,7 +471,7 @@
     currentEventId = id;
     document.getElementById('eventModalTitle').textContent = 'Edit Event';
     document.getElementById('evTitle').value = ev.title;
-    document.getElementById('evType').value  = ev.type || 'other';
+    document.getElementById('evType').value  = ev.type || 'Event';
     document.getElementById('evDate').value  = ev.date;
     document.getElementById('evStart').value = ev.startTime || '';
     document.getElementById('evEnd').value   = ev.endTime   || '';
@@ -503,7 +483,7 @@
     currentEventId = null;
     document.getElementById('eventModalTitle').textContent = 'New Event';
     document.getElementById('evTitle').value = '';
-    document.getElementById('evType').value  = 'lecture';
+    document.getElementById('evType').value  = 'Class';
     document.getElementById('evDate').value  = dateStr || todayStr();
     document.getElementById('evStart').value = '';
     document.getElementById('evEnd').value   = '';
@@ -511,11 +491,12 @@
     openModal('eventModal');
   }
 
-  function saveEvent() {
+  async function saveEvent() {
     const title = document.getElementById('evTitle').value.trim();
     const date  = document.getElementById('evDate').value;
     if (!title) { showToast('Title required'); return; }
     if (!date)  { showToast('Date required');  return; }
+    
     const ev = {
       title,
       type:      document.getElementById('evType').value,
@@ -524,21 +505,64 @@
       endTime:   document.getElementById('evEnd').value,
       notes:     document.getElementById('evNotes').value,
     };
+    
     if (currentEventId) {
       Storage.updateEvent(currentEventId, ev);
-      showToast('Event updated ✓');
+      await syncEventToGoogle(currentEventId, ev);
+      showToast('Event updated & synced ✓');
     } else {
-      Storage.addEvent(ev);
-      showToast('Event added ✓');
+      const dup = checkDuplicate(ev);
+      if (dup) {
+        showToast('⚠️ Event already exists at this time');
+        return;
+      }
+      await addAndSyncEvent(ev);
+      showToast('Event added & synced ✓');
     }
     closeModal('eventModal');
     renderUpcoming();
     CalendarUI.render();
   }
 
+  // ── DUPLICATE CHECK ────────────────────────────────────
+  function checkDuplicate(newEvent) {
+    const events = Storage.getEvents();
+    return events.some(e => 
+      e.title.toLowerCase() === newEvent.title.toLowerCase() &&
+      e.date === newEvent.date &&
+      e.startTime === newEvent.startTime
+    );
+  }
+
+  // ── ADD & SYNC ─────────────────────────────────────────
+  async function addAndSyncEvent(ev) {
+    const localEv = Storage.addEvent(ev);
+    try {
+      const gcalEv = await GCalendar.createEvent(localEv);
+      Storage.updateEvent(localEv.id, { gcalEventId: gcalEv.id });
+    } catch(e) {
+      console.error('Sync failed:', e);
+    }
+  }
+
+  async function syncEventToGoogle(localId, ev) {
+    try {
+      const local = Storage.getEventById(localId);
+      if (local?.gcalEventId) {
+        await GCalendar.updateEvent(local.gcalEventId, ev);
+      } else {
+        const gcalEv = await GCalendar.createEvent({ ...ev, id: localId });
+        Storage.updateEvent(localId, { gcalEventId: gcalEv.id });
+      }
+    } catch(e) {
+      console.error('Sync to Google failed:', e);
+    }
+  }
+
+  // ── CALENDAR SETTINGS ──────────────────────────────────
   function setupCalendarSettings() {
-    document.getElementById('saveCalSettingsBtn').addEventListener('click', saveCalendarSettings);
-    document.getElementById('settingsSignOutBtn').addEventListener('click', signOut);
+    document.getElementById('saveCalSettingsBtn')?.addEventListener('click', saveCalendarSettings);
+    document.getElementById('settingsSignOutBtn')?.addEventListener('click', signOut);
   }
 
   async function saveCalendarSettings() {
@@ -546,35 +570,21 @@
     const label = document.getElementById('calendarLabelInput').value.trim() || 'Class & Work';
     GCalendar.setCalendarId(calId);
     Storage.savePrefs({ calendarId: calId, calendarLabel: label });
-
-    const types = [];
-    if (document.getElementById('syncLecture').checked) types.push('lecture');
-    if (document.getElementById('syncLab').checked)     types.push('lab');
-    if (document.getElementById('syncExam').checked)    types.push('exam');
-    if (document.getElementById('syncWork').checked)    types.push('work');
-    if (document.getElementById('syncOther')?.checked)  types.push('other');
-
-    showToast('Syncing…');
-    try {
-      const events = Storage.getEvents();
-      const result = await GCalendar.syncEvents(events, types);
-      closeModal('calSettingsModal');
-      showToast(`Synced ${result.success} event(s)${result.failed ? ', ' + result.failed + ' failed' : ''}`);
-    } catch(e) {
-      showToast('Sync failed: ' + (e.message || 'Check your calendar ID'));
-    }
+    closeModal('calSettingsModal');
+    showToast('Settings saved ✓');
   }
 
+  // ── SIGN OUT ───────────────────────────────────────────
   function signOut() {
     if (confirm('Sign out?')) {
       GCalendar.signOut();
       Storage.clearCreds();
       Storage.clearSession();
-      isLoggedIn = false;
       location.reload();
     }
   }
 
+  // ── MODAL HELPERS ──────────────────────────────────────
   function openModal(id) {
     const m = document.getElementById(id);
     if (m) m.classList.add('open');
@@ -596,6 +606,7 @@
     });
   }
 
+  // ── TOAST ──────────────────────────────────────────────
   function showToast(msg, duration = 2800) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -603,6 +614,7 @@
     setTimeout(() => t.classList.remove('show'), duration);
   }
 
+  // ── UTILITIES ──────────────────────────────────────────
   function todayStr() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -634,9 +646,6 @@
     const ampm = h < 12 ? 'AM' : 'PM';
     const h12  = h % 12 || 12;
     return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
-  }
-  function showError(msg) {
-    showToast(msg);
   }
 
 })();

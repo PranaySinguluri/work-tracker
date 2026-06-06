@@ -1,4 +1,4 @@
-/* google-calendar.js — OAuth2 authentication & Google Calendar API */
+/* google-calendar.js — OAuth2 + Google Calendar API */
 
 const GCalendar = (() => {
 
@@ -44,7 +44,6 @@ const GCalendar = (() => {
               }
 
               try {
-                // ✅ CRITICAL: Tell gapi to use this token
                 window.gapi.client.setToken({
                   access_token: resp.access_token
                 });
@@ -108,7 +107,6 @@ const GCalendar = (() => {
         });
       }
 
-      // Load gapi script if not present
       if (window.gapi) {
         console.log("gapi already loaded");
         loadGapi();
@@ -126,7 +124,6 @@ const GCalendar = (() => {
         document.head.appendChild(gapiScript);
       }
 
-      // Load GSI script if not present
       if (!window.google || !window.google.accounts) {
         console.log("Loading GSI script...");
         const gsiScript = document.createElement('script');
@@ -169,7 +166,6 @@ const GCalendar = (() => {
     }
 
     try {
-      // ✅ Set token for auto-reconnect
       window.gapi.client.setToken({
         access_token: creds.accessToken
       });
@@ -184,6 +180,29 @@ const GCalendar = (() => {
       Storage.clearGCalCreds();
       return false;
     }
+  }
+
+  async function getAllEvents() {
+    if (!isConnected) throw new Error('Not connected');
+
+    const events = [];
+    let pageToken = null;
+
+    do {
+      const resp = await window.gapi.client.calendar.events.list({
+        calendarId: userCalendarId,
+        pageToken: pageToken,
+        maxResults: 250
+      });
+
+      if (resp.result.items) {
+        events.push(...resp.result.items);
+      }
+
+      pageToken = resp.result.nextPageToken;
+    } while (pageToken);
+
+    return events;
   }
 
   async function listCalendars() {
@@ -318,11 +337,9 @@ const GCalendar = (() => {
 
   function typeToColorId(type) {
     const map = {
-      lecture: '9',
-      lab: '10',
-      exam: '11',
-      work: '3',
-      other: '8'
+      Class: '9',
+      Work: '3',
+      Event: '8'
     };
 
     return map[type] || '8';
@@ -347,6 +364,7 @@ const GCalendar = (() => {
     init,
     requestSignIn,
     autoReconnect,
+    getAllEvents,
     listCalendars,
     createCalendar,
     setCalendarId,

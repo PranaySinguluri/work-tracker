@@ -108,7 +108,7 @@
             <div class="card-icon">🔗</div>
             <div class="card-content">
               <h3>Calendar Settings</h3>
-              <p id="gcalCardLabel">Manage &amp; share your calendar</p>
+              <p id="gcalCardWorkel">Manage &amp; share your calendar</p>
             </div>
             <div class="card-arrow">→</div>
           </button>
@@ -121,6 +121,15 @@
             </div>
             <div class="card-arrow">→</div>
           </button>
+
+          <button class="dash-card card-load" id="loadGcalBtn">
+            <div class="card-icon">📥</div>
+            <div class="card-content">
+              <h3>Load from Google</h3>
+              <p>Pull all calendar events</p>
+            </div>
+            <div class="card-arrow">→</div>
+          </button>
         </div>
       </section>
 
@@ -128,13 +137,13 @@
       <section class="view" id="view-calendar">
         <div class="cal-header">
           <button class="cal-nav" id="calPrev">‹</button>
-          <h2 class="cal-month-label" id="calMonthLabel"></h2>
+          <h2 class="cal-month-label" id="calMonthWorkel"></h2>
           <button class="cal-nav" id="calNext">›</button>
         </div>
         <div class="cal-legend">
-          <span class="legend-dot lecture"></span>Lecture
-          <span class="legend-dot lab"></span>Lab
-          <span class="legend-dot exam"></span>Exam
+          <span class="legend-dot lecture"></span>Class
+          <span class="legend-dot lab"></span>Work
+          <span class="legend-dot exam"></span>Event
           <span class="legend-dot work"></span>Work
           <span class="legend-dot other"></span>Other
         </div>
@@ -185,7 +194,7 @@
         <div class="ocr-section hidden" id="ocrSection">
           <div class="ocr-progress">
             <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-            <span id="progressLabel">Processing…</span>
+            <span id="progressWorkel">Processing…</span>
           </div>
           <label class="field-label">Extracted Text (editable)</label>
           <textarea class="ocr-text" id="ocrText" rows="8" placeholder="OCR text will appear here…"></textarea>
@@ -204,7 +213,7 @@
       </div>
       <div class="modal-body">
         <p class="review-hint">Paste or type your schedule. Each line with a time will be detected as an event.</p>
-        <textarea class="ocr-text" id="textImportArea" rows="10" placeholder="Example:&#10;Monday 9:00 AM - 10:15 AM CS 101 Lecture&#10;Tuesday 2:00 PM - 3:30 PM MATH 201 Lab&#10;Exam: Chemistry April 15 3:00 PM&#10;Costco Shift Friday 8:00 AM - 5:00 PM"></textarea>
+        <textarea class="ocr-text" id="textImportArea" rows="10" placeholder="Eventple:&#10;Monday 9:00 AM - 10:15 AM CS 101 Class&#10;Tuesday 2:00 PM - 3:30 PM MATH 201 Work&#10;Event: Chemistry April 15 3:00 PM&#10;Costco Shift Friday 8:00 AM - 5:00 PM"></textarea>
         <div class="modal-footer">
           <button class="btn btn-outline" data-close="textImportModal">Cancel</button>
           <button class="btn btn-primary" id="detectTextEventsBtn">Detect Events →</button>
@@ -281,11 +290,11 @@
         <div class="form-group">
           <label class="field-label">Type</label>
           <select class="field-input" id="evType">
-            <option value="lecture">Lecture</option>
-            <option value="lab">Lab</option>
-            <option value="exam">Exam</option>
+            <option value="Class">Class</option>
+            <option value="Work">Work</option>
+            <option value="Event">Event</option>
             <option value="work">Work</option>
-            <option value="other">Other</option>
+            <option value="Event">Event</option>
           </select>
         </div>
         <div class="form-group">
@@ -343,8 +352,8 @@
 
         <!-- Calendar name shown in Google -->
         <div class="form-group">
-          <label class="field-label">Calendar Label (shown in Google)</label>
-          <input class="field-input" id="calendarLabelInput" type="text" placeholder="Class &amp; Work" />
+          <label class="field-label">Calendar Workel (shown in Google)</label>
+          <input class="field-input" id="calendarWorkelInput" type="text" placeholder="Class &amp; Work" />
           <p class="field-hint">New events will be created under this calendar. Existing Google Calendar can be shared with friends.</p>
         </div>
 
@@ -365,9 +374,9 @@
         <div class="form-group">
           <label class="field-label">Sync these event types</label>
           <div class="sync-options">
-            <label><input type="checkbox" id="syncLecture" checked /> Lectures</label>
-            <label><input type="checkbox" id="syncLab" checked /> Labs</label>
-            <label><input type="checkbox" id="syncExam" checked /> Exams</label>
+            <label><input type="checkbox" id="syncClass" checked /> Classs</label>
+            <label><input type="checkbox" id="syncWork" checked /> Works</label>
+            <label><input type="checkbox" id="syncEvent" checked /> Events</label>
             <label><input type="checkbox" id="syncWork" checked /> Work Shifts</label>
             <label><input type="checkbox" id="syncOther" checked /> Other</label>
           </div>
