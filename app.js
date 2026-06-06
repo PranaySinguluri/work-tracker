@@ -1,4 +1,4 @@
-/* app.js — Class & Work Calendar with immediate sync */
+/* app.js — Simplified Class & Work Calendar */
 
 (function() {
   'use strict';
@@ -7,13 +7,10 @@
 
   let currentEventId = null;
   let draftEvents = [];
-  let editShiftId = null;
-  let lastSyncEmail = '';
 
   document.addEventListener('DOMContentLoaded', async () => {
     const session = Storage.getSession();
     if (session && session.email) {
-      lastSyncEmail = session.email;
       showLoadingStep();
       try {
         await GCalendar.init(CLIENT_ID);
@@ -66,18 +63,54 @@
     }
   }
 
-  function loginSuccess() {
+  async function loginSuccess() {
     const status = GCalendar.getStatus();
     const email = status.userEmail;
-    lastSyncEmail = email;
     
     Storage.setUser(email);
     Storage.saveSession({ email });
+    
+    showLoadingStep();
+    showToast('Loading your calendar...');
+    
+    // Auto-load all Google Calendar events
+    try {
+      const gcalEvents = await GCalendar.getAllEvents();
+      console.log('Loaded events from Google Calendar:', gcalEvents.length);
+      
+      const localEvents = [];
+      
+      for (const gcalEv of gcalEvents) {
+        const localEvent = {
+          id: genId(),
+          title: gcalEv.summary,
+          type: gcalEventToType(gcalEv),
+          date: gcalEv.start?.date || gcalEv.start?.dateTime?.split('T')[0],
+          startTime: gcalEv.start?.dateTime ? gcalEv.start.dateTime.split('T')[1].slice(0, 5) : '',
+          endTime: gcalEv.end?.dateTime ? gcalEv.end.dateTime.split('T')[1].slice(0, 5) : '',
+          notes: gcalEv.description || '',
+          gcalEventId: gcalEv.id
+        };
+        localEvents.push(localEvent);
+      }
+      
+      Storage.saveEvents(localEvents);
+      showToast(`✓ Loaded ${gcalEvents.length} event(s)`);
+    } catch(e) {
+      console.warn('Could not load Google Calendar:', e);
+    }
     
     showAppShell();
     setupAppUI();
     updateUserInfo();
     renderUpcoming();
+  }
+
+  function gcalEventToType(gcalEv) {
+    const title = (gcalEv.summary || '').toLowerCase();
+    if (title.includes('exam') || title.includes('test') || title.includes('lab') || title.includes('class')) return 'Class';
+    if (title.includes('shift') || title.includes('work') || title.includes('job') || title.includes('hour')) return 'Work';
+    return 'Event';
   }
 
   function showSignInStep() {
@@ -101,9 +134,9 @@
     setupCalendar();
     setupNotes();
     setupImportModal();
-    setupShiftModal();
+    setupImportTextModal();
+    setupHoursModal();
     setupEventModal();
-    setupCalendarSettings();
     setupModalCloseButtons();
     setDashToday();
     CalendarUI.init({ onEventClick, onDayClick });
@@ -112,9 +145,6 @@
   function updateUserInfo() {
     const status = GCalendar.getStatus();
     document.getElementById('userName').textContent = status.userEmail.split('@')[0];
-    const prefs = Storage.getPrefs();
-    document.getElementById('calendarIdInput').value = prefs.calendarId || 'primary';
-    document.getElementById('calendarLabelInput').value = prefs.calendarLabel || 'Class & Work';
   }
 
   function setupNav() {
@@ -136,55 +166,8 @@
 
   function setupDashboard() {
     document.getElementById('openImportBtn')?.addEventListener('click', () => openModal('importModal'));
-    document.getElementById('openShiftBtn')?.addEventListener('click', () => openShiftModal());
-    document.getElementById('openCalSettingsBtn')?.addEventListener('click', () => openModal('calSettingsModal'));
-    document.getElementById('loadGcalBtn')?.addEventListener('click', loadFromGoogleCalendar);
-  }
-
-  async function loadFromGoogleCalendar() {
-    showToast('Loading events from Google Calendar…');
-    try {
-      const gcalEvents = await GCalendar.getAllEvents();
-      console.log('Loaded events from Google Calendar:', gcalEvents.length);
-      
-      // Merge with local storage
-      const localEvents = Storage.getEvents();
-      const mergedEvents = [...localEvents];
-      
-      for (const gcalEv of gcalEvents) {
-        const exists = localEvents.find(le => 
-          le.gcalEventId === gcalEv.id
-        );
-        if (!exists) {
-          const localEvent = {
-            id: genId(),
-            title: gcalEv.summary,
-            type: gcalEventToType(gcalEv),
-            date: gcalEv.start?.date || gcalEv.start?.dateTime?.split('T')[0],
-            startTime: gcalEv.start?.dateTime ? gcalEv.start.dateTime.split('T')[1].slice(0, 5) : '',
-            endTime: gcalEv.end?.dateTime ? gcalEv.end.dateTime.split('T')[1].slice(0, 5) : '',
-            notes: gcalEv.description || '',
-            gcalEventId: gcalEv.id
-          };
-          mergedEvents.push(localEvent);
-        }
-      }
-      
-      Storage.saveEvents(mergedEvents);
-      renderUpcoming();
-      CalendarUI.render();
-      showToast(`✓ Loaded ${gcalEvents.length} event(s) from Google Calendar`);
-    } catch(e) {
-      console.error('Load failed:', e);
-      showToast('Failed to load: ' + e.message);
-    }
-  }
-
-  function gcalEventToType(gcalEv) {
-    const title = (gcalEv.summary || '').toLowerCase();
-    if (title.includes('exam') || title.includes('test') || title.includes('lab')) return 'Class';
-    if (title.includes('shift') || title.includes('work') || title.includes('job')) return 'Work';
-    return 'Event';
+    document.getElementById('openTextImportBtn')?.addEventListener('click', () => openModal('importTextModal'));
+    document.getElementById('openHoursBtn')?.addEventListener('click', () => openHoursModal());
   }
 
   function setDashToday() {
@@ -205,7 +188,7 @@
       .slice(0, 10);
 
     if (!upcoming.length) {
-      strip.innerHTML = '<p class="upcoming-empty">No upcoming events. Add a class or shift below.</p>';
+      strip.innerHTML = '<p class="upcoming-empty">No upcoming events.</p>';
       return;
     }
 
@@ -227,9 +210,9 @@
   }
 
   function setupCalendar() {
-    document.getElementById('calPrev').addEventListener('click', () => CalendarUI.prevMonth());
-    document.getElementById('calNext').addEventListener('click', () => CalendarUI.nextMonth());
-    document.getElementById('addEventFab').addEventListener('click', () => openEventModalNew());
+    document.getElementById('calPrev')?.addEventListener('click', () => CalendarUI.prevMonth());
+    document.getElementById('calNext')?.addEventListener('click', () => CalendarUI.nextMonth());
+    document.getElementById('addEventFab')?.addEventListener('click', () => openEventModalNew());
   }
 
   function onEventClick(id) { openEventModal(id); }
@@ -238,6 +221,7 @@
   function setupNotes() {
     const area = document.getElementById('notesArea');
     const saved = document.getElementById('notesSaved');
+    if (!area) return;
     area.value = Storage.getNotes();
     let timer;
     area.addEventListener('input', () => {
@@ -250,7 +234,7 @@
     });
   }
 
-  // ── IMPORT SCHEDULE ────────────────────────────────────
+  // ── IMPORT SCHEDULE (Camera/File) ──────────────────────
   function setupImportModal() {
     const fileInput = document.getElementById('fileInput');
     const cameraInput = document.getElementById('cameraInput');
@@ -376,73 +360,94 @@
         const valid = draftEvents.filter(e => e.title && e.date);
         
         for (const ev of valid) {
-          const dup = checkDuplicate(ev);
-          if (dup) {
-            showToast(`⚠️ Event exists: ${ev.title} on ${ev.date}`);
-            continue;
+          if (!checkDuplicate(ev)) {
+            await addAndSyncEvent(ev);
           }
-          await addAndSyncEvent(ev);
         }
         
         closeModal('reviewModal');
         renderUpcoming();
         CalendarUI.render();
-        showToast(`${valid.length} event(s) saved & synced ✓`);
+        showToast(`${valid.length} event(s) added ✓`);
         draftEvents = [];
       });
     }
   });
 
-  // ── WORK SHIFT MODAL ───────────────────────────────────
-  function setupShiftModal() {
-    document.getElementById('saveShiftBtn')?.addEventListener('click', saveShift);
-  }
-
-  function openShiftModal(id = null) {
-    editShiftId = id;
-    const title = document.getElementById('shiftModalTitle');
-    if (id) {
-      const ev = Storage.getEventById(id);
-      if (ev) {
-        title.textContent = 'Edit Work Shift';
-        document.getElementById('shiftTitle').value = ev.title;
-        document.getElementById('shiftDate').value  = ev.date;
-        document.getElementById('shiftStart').value = ev.startTime;
-        document.getElementById('shiftEnd').value   = ev.endTime;
+  // ── IMPORT BY TEXT (Comma-separated) ──────────────────
+  function setupImportTextModal() {
+    document.getElementById('importTextBtn')?.addEventListener('click', () => {
+      const text = document.getElementById('importTextArea').value.trim();
+      if (!text) {
+        showToast('Enter event details');
+        return;
       }
-    } else {
-      title.textContent = 'Add Work Shift';
-      document.getElementById('shiftTitle').value = 'Work Shift';
-      document.getElementById('shiftDate').value  = todayStr();
-      document.getElementById('shiftStart').value = '09:00';
-      document.getElementById('shiftEnd').value   = '17:00';
-    }
-    openModal('shiftModal');
+      
+      draftEvents = parseTextEvents(text);
+      if (!draftEvents.length) {
+        showToast('Could not parse events. Format: Title, Class/Work/Event, YYYY-MM-DD, HH:MM, HH:MM');
+        return;
+      }
+      
+      closeModal('importTextModal');
+      openReviewModal();
+      document.getElementById('importTextArea').value = '';
+    });
   }
 
-  async function saveShift() {
-    const title = document.getElementById('shiftTitle').value.trim() || 'Work Shift';
-    const date  = document.getElementById('shiftDate').value;
-    const start = document.getElementById('shiftStart').value;
-    const end   = document.getElementById('shiftEnd').value;
-    if (!date) { showToast('Please pick a date'); return; }
+  function parseTextEvents(text) {
+    const lines = text.split('\n').filter(l => l.trim());
+    const events = [];
+    
+    lines.forEach(line => {
+      const parts = line.split(',').map(p => p.trim());
+      if (parts.length >= 3) {
+        events.push({
+          id: genId(),
+          title: parts[0] || 'Event',
+          type: ['Class', 'Work', 'Event'].includes(parts[1]) ? parts[1] : 'Event',
+          date: parts[2] || todayStr(),
+          startTime: parts[3] || '',
+          endTime: parts[4] || '',
+          notes: ''
+        });
+      }
+    });
+    
+    return events;
+  }
+
+  // ── ADD HOURS (Work Shifts) ───────────────────────────
+  function setupHoursModal() {
+    document.getElementById('saveHoursBtn')?.addEventListener('click', saveHours);
+  }
+
+  function openHoursModal() {
+    document.getElementById('hoursTitle').value = 'Work Shift';
+    document.getElementById('hoursDate').value = todayStr();
+    document.getElementById('hoursStart').value = '09:00';
+    document.getElementById('hoursEnd').value = '17:00';
+    openModal('hoursModal');
+  }
+
+  async function saveHours() {
+    const title = document.getElementById('hoursTitle').value.trim() || 'Work Shift';
+    const date  = document.getElementById('hoursDate').value;
+    const start = document.getElementById('hoursStart').value;
+    const end   = document.getElementById('hoursEnd').value;
+    
+    if (!date) { showToast('Pick a date'); return; }
     
     const ev = { title, date, startTime: start, endTime: end, type: 'Work', notes: '' };
     
-    if (editShiftId) {
-      Storage.updateEvent(editShiftId, ev);
-      await syncEventToGoogle(editShiftId, ev);
-      showToast('Shift updated & synced ✓');
-    } else {
-      const dup = checkDuplicate(ev);
-      if (dup) {
-        showToast('⚠️ Event already exists at this time');
-        return;
-      }
+    if (!checkDuplicate(ev)) {
       await addAndSyncEvent(ev);
-      showToast('Shift added & synced ✓');
+      showToast('Work shift added ✓');
+    } else {
+      showToast('⚠️ Event already exists at this time');
     }
-    closeModal('shiftModal');
+    
+    closeModal('hoursModal');
     renderUpcoming();
     CalendarUI.render();
   }
@@ -509,15 +514,15 @@
     if (currentEventId) {
       Storage.updateEvent(currentEventId, ev);
       await syncEventToGoogle(currentEventId, ev);
-      showToast('Event updated & synced ✓');
+      showToast('Event updated ✓');
     } else {
-      const dup = checkDuplicate(ev);
-      if (dup) {
-        showToast('⚠️ Event already exists at this time');
+      if (!checkDuplicate(ev)) {
+        await addAndSyncEvent(ev);
+        showToast('Event added ✓');
+      } else {
+        showToast('⚠️ Event already exists');
         return;
       }
-      await addAndSyncEvent(ev);
-      showToast('Event added & synced ✓');
     }
     closeModal('eventModal');
     renderUpcoming();
@@ -559,21 +564,6 @@
     }
   }
 
-  // ── CALENDAR SETTINGS ──────────────────────────────────
-  function setupCalendarSettings() {
-    document.getElementById('saveCalSettingsBtn')?.addEventListener('click', saveCalendarSettings);
-    document.getElementById('settingsSignOutBtn')?.addEventListener('click', signOut);
-  }
-
-  async function saveCalendarSettings() {
-    const calId = document.getElementById('calendarIdInput').value.trim() || 'primary';
-    const label = document.getElementById('calendarLabelInput').value.trim() || 'Class & Work';
-    GCalendar.setCalendarId(calId);
-    Storage.savePrefs({ calendarId: calId, calendarLabel: label });
-    closeModal('calSettingsModal');
-    showToast('Settings saved ✓');
-  }
-
   // ── SIGN OUT ───────────────────────────────────────────
   function signOut() {
     if (confirm('Sign out?')) {
@@ -609,9 +599,11 @@
   // ── TOAST ──────────────────────────────────────────────
   function showToast(msg, duration = 2800) {
     const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), duration);
+    if (t) {
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), duration);
+    }
   }
 
   // ── UTILITIES ──────────────────────────────────────────
