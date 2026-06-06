@@ -210,6 +210,11 @@ body {
 .upcoming-chip.work    { border-left: 3px solid var(--work); }
 .upcoming-chip.other   { border-left: 3px solid var(--other); }
 
+/* New 3-type system */
+.upcoming-chip.Class   { border-left: 3px solid var(--lecture); }
+.upcoming-chip.Work    { border-left: 3px solid var(--work); }
+.upcoming-chip.Event   { border-left: 3px solid var(--exam); }
+
 /* Card Grid */
 .card-grid {
   display: grid;
@@ -363,6 +368,11 @@ body {
 .cal-ev-dot.exam    { background: var(--exam-light);    color: var(--exam); }
 .cal-ev-dot.work    { background: var(--work-light);    color: var(--work); }
 .cal-ev-dot.other   { background: var(--surface2);      color: var(--other); }
+
+/* New 3-type system */
+.cal-ev-dot.Class   { background: var(--lecture-light); color: var(--lecture); }
+.cal-ev-dot.Work    { background: var(--work-light);    color: var(--work); }
+.cal-ev-dot.Event   { background: var(--exam-light);    color: var(--exam); }
 
 .cal-more {
   font-size: 10px;
